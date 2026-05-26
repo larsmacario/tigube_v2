@@ -17,6 +17,7 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .cursor
+.cursorrules
 
 # Claude Code / Cursor agent worktrees (volle Repo-Kopien unter .claude/worktrees/)
 .claude
@@ -32,3 +33,4 @@ dist-ssr
 task.md
 memory-bank
 Website-Analyse-tigube.pdf
+Design.md
