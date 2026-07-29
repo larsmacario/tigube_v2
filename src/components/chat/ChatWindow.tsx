@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { MoreVertical, Settings, Trash2, ArrowLeft } from 'lucide-react'
 import { 
-  getMessages, 
+  getMessagesWithRetry, 
   sendMessage, 
   markAsRead,
   subscribeToMessagesWithSender,
@@ -11,7 +11,8 @@ import {
   deleteConversation,
   ConnectionManager
 } from '../../lib/supabase/chatService'
-import type { MessageWithSender, ConversationWithUsers } from '../../lib/supabase/types'
+import { supabase } from '../../lib/supabase/client'
+import type { MessageWithSender, ConversationWithUsers, User } from '../../lib/supabase/types'
 import MessageBubble from './MessageBubble'
 import MessageInput from './MessageInput'
 import UserAvatar from './UserAvatar'
@@ -29,10 +30,26 @@ interface ChatWindowProps {
   onMessageSent?: () => void
 }
 
+type ChatUserProfile = Pick<User, 'id' | 'first_name' | 'last_name' | 'profile_photo_url'>
+
+function pickOtherUserFromConversation(
+  conversation: ConversationWithUsers,
+  currentUserId: string
+): ChatUserProfile | null {
+  if (conversation.owner_id === currentUserId) {
+    return conversation.caretaker ?? null
+  }
+  if (conversation.caretaker_id === currentUserId) {
+    return conversation.owner ?? null
+  }
+  return conversation.owner ?? conversation.caretaker ?? null
+}
+
 function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted, onMessageSent }: ChatWindowProps) {
   const [messages, setMessages] = useState<MessageWithSender[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [realtimeDegraded, setRealtimeDegraded] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [otherUserOnline, setOtherUserOnline] = useState(false)
@@ -42,6 +59,10 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [otherUser, setOtherUser] = useState<ChatUserProfile | null>(() =>
+    pickOtherUserFromConversation(conversation, currentUserId)
+  )
+  const [isLoadingOtherUser, setIsLoadingOtherUser] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const connectionManagerRef = useRef<ConnectionManager>(new ConnectionManager())
@@ -51,10 +72,62 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
   // Get notification functions
   const { refreshUnreadCount } = useNotifications()
 
-  // Determine the other user (not current user)
-  const otherUser = conversation?.owner?.id === currentUserId 
-    ? conversation?.caretaker 
-    : conversation?.owner
+  const otherUserId = useMemo(() => {
+    if (conversation.owner_id === currentUserId) {
+      return conversation.caretaker_id
+    }
+    return conversation.owner_id
+  }, [conversation.owner_id, conversation.caretaker_id, currentUserId])
+
+  useEffect(() => {
+    const fromConversation = pickOtherUserFromConversation(conversation, currentUserId)
+    setOtherUser(fromConversation)
+
+    if (!otherUserId) return
+
+    const needsFetch =
+      !fromConversation?.first_name &&
+      !fromConversation?.last_name &&
+      !fromConversation?.profile_photo_url
+
+    if (!needsFetch && fromConversation?.id === otherUserId) return
+
+    let cancelled = false
+    setIsLoadingOtherUser(true)
+
+    const loadOtherUser = async () => {
+      const { data, error: userError } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, profile_photo_url')
+        .eq('id', otherUserId)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (data) {
+        setOtherUser(data)
+      } else if (!fromConversation) {
+        setOtherUser({
+          id: otherUserId,
+          first_name: '',
+          last_name: '',
+          profile_photo_url: null
+        })
+      }
+
+      if (userError) {
+        console.warn('ChatWindow: Profil des Gegenüber konnte nicht geladen werden', userError.message)
+      }
+
+      setIsLoadingOtherUser(false)
+    }
+
+    loadOtherUser()
+
+    return () => {
+      cancelled = true
+    }
+  }, [conversation, currentUserId, otherUserId])
 
   const getDisplayName = () => {
     if (!otherUser) return 'Unbekannt';
@@ -100,7 +173,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
 
   // Load messages and setup real-time subscriptions
   useEffect(() => {
-    if (!otherUser) {
+    if (!otherUserId) {
       setIsLoading(false)
       setError('User-Daten nicht verfügbar')
       return
@@ -109,8 +182,9 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     const loadMessages = async () => {
       setIsLoading(true)
       setError(null)
+      setRealtimeDegraded(false)
 
-      const { data, error: loadError } = await getMessages({
+      const { data, error: loadError } = await getMessagesWithRetry({
         conversation_id: conversation.id,
         limit: 50
       })
@@ -119,10 +193,8 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         setError(loadError)
       } else {
         setMessages(data || [])
-        // Mark messages as read and refresh unread count
         if (data && data.length > 0) {
           await markAsRead(conversation.id, currentUserId)
-          // Refresh the unread count after marking as read
           refreshUnreadCount()
         }
       }
@@ -132,86 +204,80 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
 
     const setupRealtimeSubscriptions = () => {
       const connectionManager = connectionManagerRef.current
+      const partnerId = otherUserId
 
-      // Subscribe to new messages
       const messagesSubscription = subscribeToMessagesWithSender(
         conversation.id,
         (newMessage) => {
+          setRealtimeDegraded(false)
           setMessages(prev => {
-            // Avoid duplicates
             if (prev.some(msg => msg.id === newMessage.id)) {
               return prev
             }
             return [...prev, newMessage]
           })
 
-          // Mark as read if from other user and refresh unread count
           if (newMessage.sender_id !== currentUserId) {
             markAsRead(conversation.id, currentUserId).then(() => {
-              // Refresh the unread count after marking as read
               refreshUnreadCount()
             })
           }
 
-          // Show notification for messages from other users
           if (newMessage.sender_id !== currentUserId) {
             const senderName = newMessage.sender 
               ? `${newMessage.sender.first_name || ''} ${newMessage.sender.last_name || ''}`.trim()
               : 'Unbekannt'
             
-            // Show browser notification
             notificationManager.showChatNotification(
               senderName,
               newMessage.content,
               conversation.id,
               () => {
-                // Focus the chat when notification is clicked
                 window.focus()
               }
             )
           }
         },
-        (error) => {
-          console.error('Messages subscription error:', error)
-          setError(error)
+        (subscriptionError) => {
+          console.error('Messages subscription error:', subscriptionError)
+          setRealtimeDegraded(true)
+          connectionManagerRef.current.handleReconnect(setupRealtimeSubscriptions)
         }
       )
 
-      // Subscribe to typing indicators
       const typingSubscription = subscribeToTypingIndicators(
         conversation.id,
         currentUserId,
         (userId) => {
-          if (otherUser && userId === otherUser.id) {
+          if (userId === partnerId) {
             setOtherUserTyping(true)
           }
         },
         (userId) => {
-          if (otherUser && userId === otherUser.id) {
+          if (userId === partnerId) {
             setOtherUserTyping(false)
           }
         },
-        (error) => {
-          console.error('Typing subscription error:', error)
+        (err) => {
+          console.error('Typing subscription error:', err)
         }
       )
 
-      // Subscribe to user presence
       const presenceSubscription = subscribeToUserPresence(
         conversation.id,
         currentUserId,
         (userId) => {
-          if (otherUser && userId === otherUser.id) {
+          if (userId === partnerId) {
             setOtherUserOnline(true)
           }
         },
         (userId) => {
-          if (otherUser && userId === otherUser.id) {
+          if (userId === partnerId) {
             setOtherUserOnline(false)
           }
         },
-        (error) => {
-          console.error('Presence subscription error:', error)
+        (err) => {
+          console.error('Presence subscription error:', err)
         }
       )
 
@@ -247,7 +313,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         clearTimeout(typingTimeoutRef.current)
       }
     }
-  }, [conversation.id, currentUserId, otherUser?.id])
+  }, [conversation.id, currentUserId, otherUserId, refreshUnreadCount])
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -336,7 +402,15 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     }
   }
 
-  if (!otherUser) {
+  if (isLoadingOtherUser && !otherUser) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (!otherUser || !otherUserId) {
     console.error('ChatWindow: Anderer User nicht gefunden in Konversation:', conversation)
     return (
       <div className="h-full flex items-center justify-center p-4">
@@ -377,6 +451,11 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
 
   return (
     <div className="h-full flex flex-col">
+      {realtimeDegraded && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-800">
+          Live-Updates pausiert – Nachrichten werden synchronisiert …
+        </div>
+      )}
       <div className="bg-white border-b-2 border-gray-200 px-4 py-4 h-[72px] flex items-center">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-3">

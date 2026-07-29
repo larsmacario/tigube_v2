@@ -62,6 +62,96 @@ export async function getOrCreateConversation(
   }
 }
 
+async function enrichConversationWithUsers(
+  conversation: Conversation,
+  userId: string
+): Promise<ConversationWithUsers> {
+  const [ownerResult, caretakerResult] = await Promise.all([
+    supabase
+      .from('users')
+      .select('id, first_name, last_name, profile_photo_url')
+      .eq('id', conversation.owner_id)
+      .single(),
+    supabase
+      .from('users')
+      .select('id, first_name, last_name, profile_photo_url')
+      .eq('id', conversation.caretaker_id)
+      .single()
+  ])
+
+  const owner = ownerResult.data || {
+    id: conversation.owner_id,
+    first_name: '',
+    last_name: '',
+    profile_photo_url: null
+  }
+  const caretaker = caretakerResult.data || {
+    id: conversation.caretaker_id,
+    first_name: '',
+    last_name: '',
+    profile_photo_url: null
+  }
+
+  const { data: latestMessage } = await supabase
+    .from('messages')
+    .select('id, content, created_at, sender_id, message_type, read_at')
+    .eq('conversation_id', conversation.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const { count: unreadCount } = await supabase
+    .from('messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('conversation_id', conversation.id)
+    .neq('sender_id', userId)
+    .is('read_at', null)
+
+  return {
+    ...conversation,
+    owner,
+    caretaker,
+    last_message: latestMessage || undefined,
+    unread_count: unreadCount || 0
+  } as ConversationWithUsers
+}
+
+/**
+ * Load a single conversation with user details (deep links / post-create navigation)
+ */
+export async function getConversationWithUsers(
+  conversationId: string,
+  userId: string
+): Promise<{ data: ConversationWithUsers | null; error: string | null }> {
+  try {
+    const { data: conversation, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('id', conversationId)
+      .maybeSingle()
+
+    if (error) {
+      return { data: null, error: error.message }
+    }
+
+    if (!conversation) {
+      return { data: null, error: null }
+    }
+
+    if (conversation.owner_id !== userId && conversation.caretaker_id !== userId) {
+      return { data: null, error: 'Kein Zugriff auf diese Konversation' }
+    }
+
+    const enriched = await enrichConversationWithUsers(conversation, userId)
+    return { data: enriched, error: null }
+  } catch (err) {
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : 'Unknown error occurred'
+    }
+  }
+}
+
 /**
  * Get all conversations for a user with user details and last message
  */
@@ -86,63 +176,8 @@ export async function getUserConversations(
       return { data: [], error: null }
     }
 
-    // Get user data and last message for each conversation
     const conversationsWithLastMessage = await Promise.all(
-      conversations.map(async (conversation) => {
-        // Get user data separately to avoid foreign key issues
-        const [ownerResult, caretakerResult] = await Promise.all([
-          supabase
-            .from('users')
-            .select('id, first_name, last_name, profile_photo_url')
-            .eq('id', conversation.owner_id)
-            .single(),
-          supabase
-            .from('users')
-            .select('id, first_name, last_name, profile_photo_url')
-            .eq('id', conversation.caretaker_id)
-            .single()
-        ])
-
-        const owner = ownerResult.data || { 
-          id: conversation.owner_id, 
-          first_name: '', 
-          last_name: '', 
-          profile_photo_url: null 
-        }
-        const caretaker = caretakerResult.data || { 
-          id: conversation.caretaker_id, 
-          first_name: '', 
-          last_name: '', 
-          profile_photo_url: null 
-        }
-        
-        // Get only the latest message and unread count - much more efficient
-        const { data: latestMessage } = await supabase
-          .from('messages')
-          .select('id, content, created_at, sender_id, message_type, read_at')
-          .eq('conversation_id', conversation.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-
-        // Get unread count for current user only  
-        const { count: unreadCount } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('conversation_id', conversation.id)
-          .neq('sender_id', userId)
-          .is('read_at', null)
-
-        const result = {
-          ...conversation,
-          owner,
-          caretaker,
-          last_message: latestMessage || undefined,
-          unread_count: unreadCount || 0
-        } as ConversationWithUsers
-
-        return result
-      })
+      conversations.map((conversation) => enrichConversationWithUsers(conversation, userId))
     )
 
     return { data: conversationsWithLastMessage, error: null }
@@ -197,6 +232,23 @@ export async function getMessages(
       error: error instanceof Error ? error.message : 'Unknown error occurred'
     }
   }
+}
+
+const MESSAGE_LOAD_RETRY_DELAY_MS = 400
+
+/**
+ * Load messages with one retry for transient auth/session races on first visit
+ */
+export async function getMessagesWithRetry(
+  options: GetMessagesOptions,
+  retriesLeft = 1
+): Promise<{ data: MessageWithSender[] | null; error: string | null }> {
+  const result = await getMessages(options)
+  if (result.error && retriesLeft > 0) {
+    await new Promise((resolve) => setTimeout(resolve, MESSAGE_LOAD_RETRY_DELAY_MS))
+    return getMessagesWithRetry(options, retriesLeft - 1)
+  }
+  return result
 }
 
 /**
