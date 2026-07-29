@@ -10,24 +10,79 @@ export function isExcludedFromAbPrice(serviceName: string | undefined): boolean 
   return n.includes('anfahrt') || n.includes('anfahrkosten');
 }
 
-export type EffectivePriceType = 'per_hour' | 'per_visit' | 'per_day';
+/** Werte, die beim Speichern in services_with_categories geschrieben werden */
+export type StoredPriceType = 'per_hour' | 'flat' | 'per_unit';
+
+/** Anzeige / Vergleich (Legacy wird auf flat gemappt) */
+export type EffectivePriceType = StoredPriceType;
+
+const LEGACY_FLAT_TYPES = new Set(['per_visit', 'per_day', 'flat']);
 
 /** Liest Preistyp aus JSON; Legacy ohne Feld → per_hour */
 export function parseEffectivePriceType(raw: unknown): EffectivePriceType {
-  if (raw === 'per_visit') return 'per_visit';
-  if (raw === 'per_day') return 'per_day';
+  if (raw === 'flat' || raw === 'per_visit' || raw === 'per_day') return 'flat';
+  if (raw === 'per_unit') return 'per_unit';
   return 'per_hour';
+}
+
+/** Wert für <select> (inkl. Legacy → flat) */
+export function priceTypeSelectValue(raw: unknown): StoredPriceType {
+  return parseEffectivePriceType(raw);
+}
+
+/** Beim Speichern: nur per_hour | flat | per_unit */
+export function normalizePriceTypeForSave(raw: unknown): StoredPriceType {
+  return parseEffectivePriceType(raw);
+}
+
+export const PER_UNIT_PRICE_TITLE =
+  'Preis pro Leistungseinheit (z. B. pro Fütterung, pro Medikament)';
+
+export function priceDisplayTitleForType(type: EffectivePriceType): string | undefined {
+  if (type === 'per_unit') return PER_UNIT_PRICE_TITLE;
+  return undefined;
 }
 
 export function priceTypeSuffixGerman(type: EffectivePriceType): string {
   switch (type) {
-    case 'per_visit':
-      return '/Besuch';
-    case 'per_day':
-      return '/Tag';
+    case 'flat':
+      return ' pauschal';
+    case 'per_unit':
+      return ' pro';
     default:
       return '/h';
   }
+}
+
+export function priceTypeSelectOptionsGerman(): { value: StoredPriceType; label: string }[] {
+  return [
+    { value: 'per_hour', label: 'Stunde (€/h)' },
+    { value: 'flat', label: 'Pauschal' },
+    { value: 'per_unit', label: 'Anzahl (pro)' },
+  ];
+}
+
+/** Default anhand früherer UI-Hinweise (€/Tag, €/Stunde, …) */
+export function defaultPriceTypeFromHint(hint: string | undefined): StoredPriceType {
+  if (!hint) return 'per_hour';
+  const h = hint.toLowerCase();
+  if (
+    h.includes('/tag') ||
+    h.includes('/nacht') ||
+    h.includes('/besuch') ||
+    h.includes('/termin') ||
+    h.includes('/kurs') ||
+    h.includes('/plan') ||
+    h.includes('/shooting') ||
+    h.includes('/event') ||
+    h.includes('/einsatz')
+  ) {
+    return 'flat';
+  }
+  if (h.includes('/bild') || h.includes('/analyse')) {
+    return 'per_unit';
+  }
+  return 'per_hour';
 }
 
 export function parsePositiveNumber(raw: unknown): number | null {
@@ -201,3 +256,8 @@ export function formatTravelCostGerman(config: TravelCostConfig | null): string 
 }
 
 export { getCheapestPricedService as getCheapestServiceDisplay };
+
+/** @deprecated intern – Legacy-Erkennung */
+export function isLegacyFlatPriceType(raw: unknown): boolean {
+  return typeof raw === 'string' && LEGACY_FLAT_TYPES.has(raw);
+}

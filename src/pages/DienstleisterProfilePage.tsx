@@ -23,6 +23,7 @@ import {
   getCheapestPricedService,
   isExcludedFromAbPrice,
   parseEffectivePriceType,
+  priceDisplayTitleForType,
   priceTypeSuffixGerman,
   resolveTravelCostConfig,
 } from '../lib/pricing/servicePricing';
@@ -977,6 +978,7 @@ function DienstleisterProfilePage() {
                       const serviceName = service.name || 'Unbekannte Leistung';
                       const servicePrice = service.price;
                       const effType = parseEffectivePriceType(service.price_type || 'per_hour');
+                      const priceTitle = priceDisplayTitleForType(effType);
 
                       let displayPrice: React.ReactNode = (
                         <span title="Preis auf Anfrage" className="cursor-help border-b border-dotted border-current">
@@ -995,7 +997,10 @@ function DienstleisterProfilePage() {
                               <span className="text-sm text-gray-600 block mt-1 break-words">{service.beschreibung}</span>
                             )}
                           </div>
-                          <span className="text-lg font-semibold text-primary-600 text-right shrink-0 whitespace-nowrap">
+                          <span
+                            className="text-lg font-semibold text-primary-600 text-right shrink-0 whitespace-nowrap"
+                            title={priceTitle}
+                          >
                             {displayPrice}
                           </span>
                         </div>

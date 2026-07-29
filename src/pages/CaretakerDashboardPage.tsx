@@ -30,13 +30,18 @@ import { VerificationService, type VerificationDocument } from '../lib/services/
 import CaretakerContactTab from '../components/ui/CaretakerContactTab';
 import { isCaretaker, formatCurrency } from '../lib/utils';
 import {
+  defaultPriceTypeFromHint,
   formatTravelCostGerman,
   getCheapestPricedService,
   isExcludedFromAbPrice,
+  normalizePriceTypeForSave,
   parseEffectivePriceType,
+  priceTypeSelectValue,
   priceTypeSuffixGerman,
   resolveTravelCostConfig,
+  type StoredPriceType,
 } from '../lib/pricing/servicePricing';
+import ServicePriceTypeSelect from '../components/pricing/ServicePriceTypeSelect';
 import RefGrowDashboard from '../components/ui/RefGrowDashboard';
 import DashboardReleaseTeaser from '../components/dashboard/DashboardReleaseTeaser';
 
@@ -519,7 +524,8 @@ function CaretakerDashboardPage() {
     return predefinedServicesByCategory[currentCategoryId] || predefinedServicesByCategory[1];
   }, [currentCategoryId]);
 
-  const servicePriceLabels: Record<string, string> = {
+  /** Nur Default für price_type beim Anhaken – nicht mehr als festes Label in der Zeile */
+  const servicePriceHints: Record<string, string> = {
     // Betreuer (kategorie_id: 1)
     'Gassi-Service': '€/30 Min',
     'Haustierbetreuung zu Hause': '€/Besuch',
@@ -672,15 +678,6 @@ function CaretakerDashboardPage() {
     }));
   }
 
-  function resolveSavePriceType(
-    meta: CategorizedService | undefined
-  ): 'per_hour' | 'per_visit' | 'per_day' {
-    const t = meta?.price_type;
-    if (t === 'per_visit') return 'per_visit';
-    if (t === 'per_day') return 'per_day';
-    return 'per_hour';
-  }
-
   function handleTravelCostDraftChange(field: 'pricePerKm' | 'freeKm', value: string) {
     const nextVal =
       field === 'freeKm' ? value.replace(/[^0-9]/g, '') : validatePriceInput(value);
@@ -690,7 +687,7 @@ function CaretakerDashboardPage() {
     }));
   }
 
-  function handleServicePriceTypeChange(serviceName: string, priceType: 'per_hour' | 'per_visit') {
+  function handleServicePriceTypeChange(serviceName: string, priceType: StoredPriceType) {
     setServicesDraft(d => {
       const ix = d.servicesWithCategories.findIndex(s => s.name === serviceName);
       const next = [...d.servicesWithCategories];
@@ -718,7 +715,7 @@ function CaretakerDashboardPage() {
       servicesDraft.services.forEach(serviceName => {
         const price = servicesDraft.prices[serviceName];
         const meta = servicesDraft.servicesWithCategories.find(s => s.name === serviceName);
-        const pt = resolveSavePriceType(meta);
+        const pt = normalizePriceTypeForSave(meta?.price_type);
         const service: CategorizedService = {
           name: serviceName,
           category_id: meta?.category_id ?? 8,
@@ -740,7 +737,7 @@ function CaretakerDashboardPage() {
           const price = servicesDraft.prices[serviceName];
           if (price && price.trim() !== '') {
             const existingService = servicesDraft.servicesWithCategories.find(s => s.name === serviceName);
-            const pt = resolveSavePriceType(existingService);
+            const pt = normalizePriceTypeForSave(existingService?.price_type);
             const service: CategorizedService = {
               name: serviceName,
               category_id: existingService?.category_id || 8,
@@ -3178,6 +3175,7 @@ function CaretakerDashboardPage() {
                                   checked={servicesDraft.services.includes(service)}
                                   onChange={e => {
                                     if (e.target.checked) {
+                                      const defaultPt = defaultPriceTypeFromHint(servicePriceHints[service]);
                                       setServicesDraft(d => ({
                                         ...d,
                                         services: [...d.services, service],
@@ -3191,7 +3189,7 @@ function CaretakerDashboardPage() {
                                                 name: service,
                                                 category_id: 8,
                                                 category_name: 'Allgemein',
-                                                price_type: 'per_hour',
+                                                price_type: defaultPt,
                                               },
                                             ],
                                       }));
@@ -3210,32 +3208,17 @@ function CaretakerDashboardPage() {
                                   }}
                                 />
                                 <span className="font-medium text-gray-700">{service}</span>
-                                <span className="text-sm text-gray-500">({servicePriceLabels[service] || '€'})</span>
                               </div>
                               <div className="flex flex-wrap items-center gap-2 justify-end">
-                                <select
-                                  className={`input w-32 text-sm ${!servicesDraft.services.includes(service) ? 'opacity-50 bg-gray-100' : ''}`}
-                                  value={
-                                    ['per_visit', 'per_day'].includes(
-                                      String(
-                                        servicesDraft.servicesWithCategories.find(s => s.name === service)
-                                          ?.price_type
-                                      )
-                                    )
-                                      ? 'per_visit'
-                                      : 'per_hour'
-                                  }
-                                  onChange={e =>
-                                    handleServicePriceTypeChange(
-                                      service,
-                                      e.target.value as 'per_hour' | 'per_visit'
-                                    )
-                                  }
+                                <ServicePriceTypeSelect
+                                  className={`input w-36 text-sm ${!servicesDraft.services.includes(service) ? 'opacity-50 bg-gray-100' : ''}`}
+                                  value={priceTypeSelectValue(
+                                    servicesDraft.servicesWithCategories.find(s => s.name === service)
+                                      ?.price_type
+                                  )}
+                                  onChange={pt => handleServicePriceTypeChange(service, pt)}
                                   disabled={!servicesDraft.services.includes(service)}
-                                >
-                                  <option value="per_hour">€/h</option>
-                                  <option value="per_visit">€/Besuch</option>
-                                </select>
+                                />
                                 <input
                                   type="text"
                                   inputMode="decimal"
@@ -3326,27 +3309,12 @@ function CaretakerDashboardPage() {
                                     </option>
                                   ))}
                                 </select>
-                                <select
-                                  className="input w-28 text-sm shrink-0"
-                                  value={
-                                    ['per_visit', 'per_day'].includes(
-                                      String(
-                                        servicesDraft.servicesWithCategories.find(s => s.name === k)?.price_type
-                                      )
-                                    )
-                                      ? 'per_visit'
-                                      : 'per_hour'
-                                  }
-                                  onChange={e =>
-                                    handleServicePriceTypeChange(
-                                      k,
-                                      e.target.value as 'per_hour' | 'per_visit'
-                                    )
-                                  }
-                                >
-                                  <option value="per_hour">€/h</option>
-                                  <option value="per_visit">€/Besuch</option>
-                                </select>
+                                <ServicePriceTypeSelect
+                                  value={priceTypeSelectValue(
+                                    servicesDraft.servicesWithCategories.find(s => s.name === k)?.price_type
+                                  )}
+                                  onChange={pt => handleServicePriceTypeChange(k, pt)}
+                                />
                                 <input
                                   type="text"
                                   inputMode="decimal"

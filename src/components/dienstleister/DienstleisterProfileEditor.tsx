@@ -9,7 +9,8 @@ import {
   DEFAULT_SERVICE_CATEGORIES,
   type ServiceCategory,
 } from '../../lib/types/service-categories';
-import { getCheapestPricedService } from '../../lib/pricing/servicePricing';
+import { getCheapestPricedService, normalizePriceTypeForSave, priceTypeSelectValue, type StoredPriceType } from '../../lib/pricing/servicePricing';
+import ServicePriceTypeSelect from '../pricing/ServicePriceTypeSelect';
 
 interface DienstleisterKategorie {
   id: number;
@@ -59,13 +60,6 @@ function validatePriceInput(value: string): string {
   return cleanValue;
 }
 
-function resolveSavePriceType(meta: CategorizedService | undefined): 'per_hour' | 'per_visit' {
-  const t = meta?.price_type;
-  if (t === 'per_visit') return 'per_visit';
-  if (t === 'per_day') return 'per_visit';
-  return 'per_hour';
-}
-
 function rowsFromServices(
   services: CategorizedService[] | undefined
 ): PricingRowDraft[] {
@@ -78,7 +72,7 @@ function rowsFromServices(
         name: s.name,
         category_id: s.category_id ?? 8,
         category_name: s.category_name ?? 'Allgemein',
-        price_type: resolveSavePriceType(s) === 'per_visit' ? 'per_visit' : 'per_hour',
+        price_type: normalizePriceTypeForSave(s.price_type),
       },
       priceStr:
         s.price != null && String(s.price).trim() !== ''
@@ -267,7 +261,7 @@ export default function DienstleisterProfileEditor({
     );
   }
 
-  function updateRowPriceType(reactKey: string, priceType: 'per_hour' | 'per_visit') {
+  function updateRowPriceType(reactKey: string, priceType: StoredPriceType) {
     setPricingRows(rows =>
       rows.map(r =>
         r.reactKey === reactKey
@@ -299,7 +293,7 @@ export default function DienstleisterProfileEditor({
             category_id: row.categorized.category_id,
             category_name: row.categorized.category_name,
             ...(priced
-              ? { price: parsed, price_type: resolveSavePriceType(row.categorized) }
+              ? { price: parsed, price_type: normalizePriceTypeForSave(row.categorized.price_type) }
               : {}),
           };
         });
@@ -555,7 +549,7 @@ export default function DienstleisterProfileEditor({
       <div className="border rounded-xl border-gray-200 bg-gray-50/80 p-4 space-y-4">
         <h4 className="text-md font-semibold text-gray-900">Preise &amp; Anfahrt</h4>
         <p className="text-xs text-gray-600">
-          Pro Leistung Abrechnung in €/h oder €/Besuch; Anfahrt separat in €/km (optional erste km frei).
+          Pro Leistung: Stunde (€/h), Pauschal oder Anzahl (pro); Anfahrt separat in €/km (optional erste km frei).
         </p>
 
         <div className="space-y-3">
@@ -582,20 +576,10 @@ export default function DienstleisterProfileEditor({
                   </option>
                 ))}
               </select>
-              <select
-                className="input w-32 shrink-0 text-sm"
-                value={
-                  ['per_visit', 'per_day'].includes(String(row.categorized.price_type))
-                    ? 'per_visit'
-                    : 'per_hour'
-                }
-                onChange={e =>
-                  updateRowPriceType(row.reactKey, e.target.value as 'per_hour' | 'per_visit')
-                }
-              >
-                <option value="per_hour">€/h</option>
-                <option value="per_visit">€/Besuch</option>
-              </select>
+              <ServicePriceTypeSelect
+                value={priceTypeSelectValue(row.categorized.price_type)}
+                onChange={pt => updateRowPriceType(row.reactKey, pt)}
+              />
               <input
                 type="text"
                 inputMode="decimal"

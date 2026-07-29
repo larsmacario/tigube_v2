@@ -28,6 +28,7 @@ import {
   getCheapestPricedService,
   parseEffectivePriceType,
   parseServicesWithCategoriesJson,
+  priceDisplayTitleForType,
   priceTypeSuffixGerman,
   resolveTravelCostConfig,
 } from '../lib/pricing/servicePricing';
@@ -968,9 +969,11 @@ function BetreuerProfilePage() {
                         ? servicePrice > 0
                         : parseFloat(String(servicePrice)) > 0);
 
-                    const suffix = swc
-                      ? priceTypeSuffixGerman(parseEffectivePriceType(swc.price_type))
-                      : '/h';
+                    const effType = swc
+                      ? parseEffectivePriceType(swc.price_type)
+                      : 'per_hour';
+                    const suffix = priceTypeSuffixGerman(effType);
+                    const priceTitle = priceDisplayTitleForType(effType);
 
                     const displayPrice = hasValidPrice
                       ? `${formatCurrency(
@@ -987,7 +990,10 @@ function BetreuerProfilePage() {
                     return (
                       <div key={service} className="flex justify-between items-start gap-4">
                         <span className="text-gray-800 font-medium break-words flex-1">{service}</span>
-                        <span className="text-lg font-semibold text-primary-600 text-right shrink-0 whitespace-nowrap">
+                        <span
+                          className="text-lg font-semibold text-primary-600 text-right shrink-0 whitespace-nowrap"
+                          title={priceTitle}
+                        >
                           {displayPrice}
                         </span>
                       </div>

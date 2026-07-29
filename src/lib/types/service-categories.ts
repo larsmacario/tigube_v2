@@ -21,8 +21,8 @@ export interface CategorizedService {
   category_id: number;
   category_name: string;
   price?: number;
-  /** Hauptfälle: Stunde oder Besuch. `per_day` nur noch für ältere Datensätze (Anzeige /h | /Besuch | /Tag). */
-  price_type?: 'per_hour' | 'per_visit' | 'per_day';
+  /** per_hour | flat | per_unit; Legacy: per_visit, per_day → Anzeige als pauschal */
+  price_type?: 'per_hour' | 'flat' | 'per_unit' | 'per_visit' | 'per_day';
 }
 
 // Extended Caretaker Profile Types
@@ -62,7 +62,7 @@ export interface ServiceWithCategory {
   categoryId: number;
   categoryName: string;
   price?: number;
-  priceType?: 'per_hour' | 'per_visit' | 'per_day';
+  priceType?: 'per_hour' | 'flat' | 'per_unit' | 'per_visit' | 'per_day';
 }
 
 // Form data for service management
@@ -70,7 +70,7 @@ export interface ServiceFormData {
   name: string;
   categoryId: number;
   price?: number;
-  priceType?: 'per_hour' | 'per_visit' | 'per_day';
+  priceType?: 'per_hour' | 'flat' | 'per_unit' | 'per_visit' | 'per_day';
 }
 
 // Default Service Categories (matching database)
