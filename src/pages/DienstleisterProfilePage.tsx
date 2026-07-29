@@ -14,6 +14,8 @@ import { DienstleisterService } from '../lib/services/dienstleisterService';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import { getOrCreateConversation } from '../lib/supabase/chatService';
+import ToastContainer from '../components/ui/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { ownerCaretakerService, caretakerPartnerService } from '../lib/supabase/db';
 import { formatCurrency, isCaretaker } from '../lib/utils';
 import {
@@ -47,6 +49,7 @@ function DienstleisterProfilePage() {
   const navigate = useNavigate();
   const { user, userProfile } = useAuth();
   const { canSendContactRequest, trackUsage, subscription } = useFeatureAccess();
+  const { toasts, showError, removeToast } = useToast();
 
 
   const [dienstleister, setDienstleister] = useState<DienstleisterProfil | null>(null);
@@ -220,12 +223,18 @@ function DienstleisterProfilePage() {
       if (conversation && !error) {
         navigate(`/nachrichten/${conversation.id}`);
       } else {
-        console.warn('Konversation konnte nicht erstellt/gefunden werden. Öffne Nachrichtenübersicht.', error);
-        navigate('/nachrichten');
+        console.warn('Konversation konnte nicht erstellt/gefunden werden:', error);
+        showError(
+          'Nachricht konnte nicht gestartet werden',
+          error || 'Bitte versuche es erneut oder wende dich an den Support.'
+        );
       }
     } catch (error) {
       console.error('Unerwarteter Fehler beim Kontaktieren:', error);
-      navigate('/nachrichten');
+      showError(
+        'Nachricht konnte nicht gestartet werden',
+        error instanceof Error ? error.message : 'Bitte versuche es erneut.'
+      );
     } finally {
       setIsContactLoading(false);
     }
@@ -1085,6 +1094,7 @@ function DienstleisterProfilePage() {
           </div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
     </div>
   );
 }

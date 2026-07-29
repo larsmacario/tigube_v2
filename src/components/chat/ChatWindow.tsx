@@ -56,27 +56,6 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     ? conversation?.caretaker 
     : conversation?.owner
 
-  // Sicherheitscheck für otherUser
-  if (!otherUser) {
-    console.error('❌ ChatWindow: Anderer User nicht gefunden in Konversation:', conversation);
-    return (
-      <div className="h-full flex items-center justify-center p-4">
-        <div className="text-center">
-          <p className="text-red-600 font-medium">Fehler beim Laden des Chats</p>
-          <p className="text-gray-500 text-sm mt-1">User-Daten nicht verfügbar</p>
-          {onBack && (
-            <button 
-              onClick={onBack}
-              className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-            >
-              Zurück
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   const getDisplayName = () => {
     if (!otherUser) return 'Unbekannt';
     const firstName = otherUser.first_name || ''
@@ -121,6 +100,12 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
 
   // Load messages and setup real-time subscriptions
   useEffect(() => {
+    if (!otherUser) {
+      setIsLoading(false)
+      setError('User-Daten nicht verfügbar')
+      return
+    }
+
     const loadMessages = async () => {
       setIsLoading(true)
       setError(null)
@@ -351,6 +336,26 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     }
   }
 
+  if (!otherUser) {
+    console.error('ChatWindow: Anderer User nicht gefunden in Konversation:', conversation)
+    return (
+      <div className="h-full flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-red-600 font-medium">Fehler beim Laden des Chats</p>
+          <p className="text-gray-500 text-sm mt-1">User-Daten nicht verfügbar</p>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              Zurück
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -392,7 +397,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
           {/* Action Buttons */}
           <div className="flex items-center space-x-2 relative">
             {/* Nur anzeigen wenn der aktuelle Benutzer der Owner ist */}
-            {conversation.owner.id === currentUserId && (
+            {conversation.owner?.id === currentUserId && otherUser?.id && (
               <SaveCaretakerButton
                 ownerId={currentUserId}
                 caretakerId={otherUser.id}

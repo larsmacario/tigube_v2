@@ -37,8 +37,11 @@ class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Ein Fehler ist aufgetreten</h1>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-2">
               Die Anwendung konnte nicht geladen werden. Bitte versuche es erneut.
+            </p>
+            <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+              Tipp: Seite hart neu laden (Cache leeren). Auf dem iPhone: Safari → Adressleiste gedrückt halten → „Ohne Inhaltsblocker neu laden“ oder App schließen und erneut öffnen.
             </p>
             <button
               onClick={() => window.location.reload()}

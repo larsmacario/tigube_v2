@@ -935,17 +935,22 @@ function OwnerDashboardPage() {
 
       if (error) {
         console.error('Fehler beim Erstellen der Konversation:', error);
-        // TODO: Toast-Benachrichtigung anzeigen
+        showError(
+          'Chat nicht möglich',
+          error || 'Die Konversation konnte nicht geöffnet werden.'
+        );
         return;
       }
 
       if (conversation) {
-        // Navigiere direkt zum Chat
         navigate(`/nachrichten/${conversation.id}`);
       }
     } catch (error) {
       console.error('Unerwarteter Fehler beim Starten des Chats:', error);
-      // TODO: Toast-Benachrichtigung anzeigen
+      showError(
+        'Chat nicht möglich',
+        error instanceof Error ? error.message : 'Bitte versuche es erneut.'
+      );
     }
   };
 

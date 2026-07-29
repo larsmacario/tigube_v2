@@ -1011,9 +1011,12 @@ export const caretakerSearchService = {
       const lastName = result.last_name || '';
       const name = firstName && lastName ? `${firstName} ${lastName[0]}.` : (firstName || 'Unbekannt');
 
+      const caretakerUserId =
+        result.users?.id ?? result.user_id ?? result.id;
+
       const transformedData = {
         id: result.id,
-        userId: result.id, // Use the same ID for userId
+        userId: caretakerUserId,
         name,
         avatar: result.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName || 'U')}&background=f3f4f6&color=374151`,
         location: result.city && result.plz ? `${result.city} ${result.plz}` : (result.city || 'Unbekannt'),

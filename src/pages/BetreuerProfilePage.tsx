@@ -19,6 +19,8 @@ import { useShortTermAvailability } from '../contexts/ShortTermAvailabilityConte
 
 import HomePhotosSection from '../components/ui/HomePhotosSection';
 import ResponseTimeDisplay from '../components/ui/ResponseTimeDisplay';
+import ToastContainer from '../components/ui/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { getCaretakerResponseTime, calculateCaretakerResponseTime } from '../lib/supabase/responseTimeService';
 import type { TravelCostConfig } from '../lib/types/service-categories';
 import {
@@ -80,6 +82,7 @@ function BetreuerProfilePage() {
   const navigate = useNavigate();
   const { isAuthenticated, user, userProfile } = useAuth();
   const { checkFeature, canSendContactRequest, trackUsage, subscription } = useFeatureAccess();
+  const { toasts, showError, removeToast } = useToast();
 
   const { shortTermAvailable } = useShortTermAvailability();
   const [isFavorite, setIsFavorite] = useState(false);
@@ -322,8 +325,12 @@ function BetreuerProfilePage() {
       return;
     }
 
-    if (!caretaker?.id) {
-      console.error('Caretaker ID fehlt');
+    if (!caretaker?.userId) {
+      console.error('Caretaker userId fehlt');
+      showError(
+        'Chat nicht möglich',
+        'Die Betreuer-Daten sind unvollständig. Bitte versuche es später erneut.'
+      );
       return;
     }
 
@@ -345,23 +352,24 @@ function BetreuerProfilePage() {
       // Erstelle oder finde bestehende Konversation
       const { data: conversation, error } = await getOrCreateConversation({
         owner_id: user.id,
-        caretaker_id: caretaker.userId || ''
+        caretaker_id: caretaker.userId
       });
 
       if (conversation && !error) {
-        // Contact initiated
-
-        // Navigiere direkt in die Konversation
         navigate(`/nachrichten/${conversation.id}`);
       } else {
-        console.warn('Konversation konnte nicht erstellt/gefunden werden. Öffne Nachrichtenübersicht.', error);
-        // Fallback: Öffne Nachrichten-Übersicht, damit der Chatbereich erreichbar ist
-        navigate('/nachrichten');
+        console.warn('Konversation konnte nicht erstellt/gefunden werden:', error);
+        showError(
+          'Nachricht konnte nicht gestartet werden',
+          error || 'Bitte versuche es erneut oder wende dich an den Support.'
+        );
       }
     } catch (error) {
       console.error('Unerwarteter Fehler beim Kontaktieren:', error);
-      // Fallback auch bei Fehler: Nachrichtenübersicht öffnen
-      navigate('/nachrichten');
+      showError(
+        'Nachricht konnte nicht gestartet werden',
+        error instanceof Error ? error.message : 'Bitte versuche es erneut.'
+      );
     } finally {
       setIsContactLoading(false);
     }
@@ -1057,6 +1065,7 @@ function BetreuerProfilePage() {
           </div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
     </div>
   );
 }

@@ -22,6 +22,8 @@ import {
   Heart
 } from 'lucide-react';
 import Button from '../components/ui/Button';
+import ToastContainer from '../components/ui/ToastContainer';
+import { useToast } from '../hooks/useToast';
 
 // Hilfsfunktion für Namensformatierung "Vorname N."
 const formatOwnerName = (firstName: string | null, lastName: string | null): string => {
@@ -36,6 +38,7 @@ function OwnerPublicProfilePage() {
   const { user, userProfile } = useAuth();
   const { subscription } = useFeatureAccess();
   const { isPremiumUser, hasFeature } = useSubscription();
+  const { toasts, showError, removeToast } = useToast();
 
   const [profile, setProfile] = useState<PublicOwnerProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -297,7 +300,10 @@ function OwnerPublicProfilePage() {
 
       if (convError || !conversation) {
         console.error('Fehler beim Öffnen der Konversation:', convError);
-        navigate('/nachrichten');
+        showError(
+          'Nachricht konnte nicht gestartet werden',
+          convError || 'Bitte versuche es erneut.'
+        );
         return;
       }
 
@@ -548,6 +554,7 @@ function OwnerPublicProfilePage() {
           </div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
     </div>
   );
 }
