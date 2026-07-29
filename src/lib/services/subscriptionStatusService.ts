@@ -134,25 +134,11 @@ class SubscriptionStatusService {
   }
 
   /**
-   * Trigger manual sync of a checkout session (for debugging)
+   * @deprecated Webhook übernimmt Sync; nur noch für manuelle Tests
    */
-  async syncCheckoutSession(checkoutSessionId: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-checkout-session', {
-        body: { checkout_session_id: checkoutSessionId }
-      });
-
-      if (error) {
-        console.error('Error syncing checkout session:', error);
-        return false;
-      }
-
-      console.log('Checkout session synced successfully:', data);
-      return true;
-    } catch (error) {
-      console.error('Error in syncCheckoutSession:', error);
-      return false;
-    }
+  async syncCheckoutSession(_checkoutSessionId: string): Promise<boolean> {
+    console.warn('syncCheckoutSession is deprecated; subscription sync runs via Stripe webhook.');
+    return false;
   }
 
   /**

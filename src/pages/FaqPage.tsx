@@ -43,10 +43,15 @@ const generalItems: AccordionItem[] = [
   },
   {
     id: 'general-5',
-    title: 'Was bedeutet „3 Monate gratis bis 30.04."?',
+    title: 'Wie buche ich Premium oder Professional?',
     content: (
       <p className="text-gray-700 leading-relaxed">
-        Wer sich bis zum 30. April 2026 registriert, erhält die ersten 3 Monate Premium-Mitgliedschaft kostenlos. Das gilt für Betreuungspersonen und Tierhalter:innen gleichermaßen.
+        Unter{' '}
+        <Link to="/mitgliedschaften" className="text-primary-600 hover:underline">
+          Mitgliedschaften
+        </Link>{' '}
+        wählst du deinen Plan und zahlst sicher über Stripe. Dein Abo kannst du im Kundenportal
+        jederzeit verwalten oder kündigen.
       </p>
     ),
   },
@@ -94,7 +99,7 @@ const ownerItems: AccordionItem[] = [
     title: 'Warum lohnt es sich, sich schon jetzt zu registrieren?',
     content: (
       <p className="text-gray-700 leading-relaxed">
-        Frühe Mitglieder profitieren von 3 Monaten gratis Premium, haben Zugang zu ersten verfügbaren Betreuungspersonen und helfen mit, die Plattform für ihre Region aufzubauen.
+        Frühe Mitglieder haben Zugang zu den ersten verfügbaren Betreuungspersonen und helfen mit, die Plattform für ihre Region aufzubauen.
       </p>
     ),
   },
@@ -133,7 +138,11 @@ const caretakerItems: AccordionItem[] = [
     title: 'Was kostet die Mitgliedschaft?',
     content: (
       <p className="text-gray-700 leading-relaxed">
-        Du startest mit 3 Monaten gratis Premium (Anmeldung bis 30. April 2026). Danach gibt es verschiedene Mitgliedschaftsoptionen, die du auf der Preisseite einsehen kannst.
+        Die Registrierung und Basis-Funktionen sind kostenlos. Premium für Tierhalter:innen (ab 4,90 €/Monat) und Professional für Betreuungspersonen (ab 12,90 €/Monat) findest du auf der{' '}
+        <Link to="/mitgliedschaften" className="text-primary-600 hover:underline">
+          Preisseite
+        </Link>
+        .
       </p>
     ),
   },
@@ -142,7 +151,7 @@ const caretakerItems: AccordionItem[] = [
     title: 'Warum ist es sinnvoll, früh Teil des Startpools zu werden?',
     content: (
       <p className="text-gray-700 leading-relaxed">
-        Wer früh dabei ist, wird zuerst in Suchergebnissen gezeigt, kann mehr Anfragen erhalten und profitiert von der Aufmerksamkeit beim Plattformstart. Außerdem: 3 Monate gratis Premium für alle frühen Mitglieder.
+        Wer früh dabei ist, wird zuerst in Suchergebnissen gezeigt, kann mehr Anfragen erhalten und profitiert von der Aufmerksamkeit beim Plattformstart.
       </p>
     ),
   },

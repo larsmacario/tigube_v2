@@ -46,7 +46,7 @@ export class SubscriptionService {
 
       const { data: user, error } = await supabase
         .from('users')
-        .select('plan_type, plan_expires_at, show_ads, premium_badge, created_at')
+        .select('plan_type, plan_expires_at, show_ads, premium_badge, created_at, is_admin')
         .eq('id', userId)
         .single() as any;
 
@@ -55,21 +55,13 @@ export class SubscriptionService {
         return null;
       }
 
-      // 🎁 FREE PREMIUM PROMOTION: User die sich bis 30.04.2026 registrieren, erhalten 3 Monate gratis Premium
-      const PROMOTION_SIGNUP_DEADLINE = new Date('2026-04-30T23:59:59.000Z');
-      const registrationDate = user.created_at ? new Date(user.created_at) : null;
-      if (registrationDate && registrationDate < PROMOTION_SIGNUP_DEADLINE) {
-        // 3 Monate ab Registrierungsdatum
-        const promotionExpiresAt = new Date(registrationDate);
-        promotionExpiresAt.setMonth(promotionExpiresAt.getMonth() + 3);
-        if (new Date() < promotionExpiresAt) {
-          return {
-            plan_type: 'premium',
-            plan_expires_at: promotionExpiresAt.toISOString(),
-            show_ads: false,
-            premium_badge: true
-          };
-        }
+      if (user.is_admin === true) {
+        return {
+          plan_type: 'premium',
+          plan_expires_at: null,
+          show_ads: false,
+          premium_badge: true
+        };
       }
 
       // Prüfe ob Premium-Plan abgelaufen ist
@@ -119,8 +111,7 @@ export class SubscriptionService {
   }
 
   /**
-   * NEUE METHODE: Update User-Plan via n8n (direkte User-Update)
-   * Diese Methode wird von n8n nach erfolgreicher Zahlung aufgerufen
+   * Update User-Plan (z. B. Admin oder interne Tools)
    */
   static async updateUserPlan(
     userId: string,

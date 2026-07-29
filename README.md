@@ -41,13 +41,15 @@ cp .env.example .env
 npm run dev
 ```
 
-### Environment Variables
+### Environment Variables (Frontend)
 
 ```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
+VITE_APP_URL=https://tigube.de
+VITE_ENVIRONMENT=production
 ```
+
+Stripe-Secrets und Price-IDs: siehe `docs/STRIPE_SETUP.md`.
 
 ### 🗄️ Datenbank Setup
 

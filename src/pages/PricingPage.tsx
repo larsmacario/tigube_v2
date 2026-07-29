@@ -131,37 +131,15 @@ export default function PricingPage() {
     return (
       <div className="min-h-screen bg-gray-50">
 
-        {/* 🎁 FREE PREMIUM PROMOTION BANNER */}
-        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
-            {/* Row 1: Headline + Benefits */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-4 text-center">
-              <span className="text-2xl sm:text-3xl">🎁</span>
-              <div>
-                <span className="font-extrabold text-lg sm:text-xl tracking-tight">3 Monate gratis Premium</span>
-                <span className="hidden sm:inline mx-2 opacity-60">·</span>
-                <span className="block sm:inline text-white/90 text-sm sm:text-base mt-0.5 sm:mt-0">Keine Kreditkarte · Keine Kündigung nötig</span>
-              </div>
-            </div>
-            {/* Row 2: Deadline pill */}
-            <div className="mt-2 sm:mt-3 flex justify-center">
-              <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full px-3 sm:px-4 py-1 text-xs sm:text-sm font-medium text-center">
-                <span>🗓️</span>
-                <span>Gilt für alle Anmeldungen bis zum <strong className="ml-1">30. April 2026</strong></span>
-              </span>
-            </div>
-          </div>
-        </div>
-
         {/* Hero Section */}
-        <div className="bg-white">
+        <div className="bg-white border-b border-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <div className="text-center">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 sm:mb-3">
                 tigube Mitgliedschaften
               </h1>
               <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
-                Starte kostenlos oder upgrade für erweiterte Features
+                Starte kostenlos oder upgrade für erweiterte Features – Abo über Stripe, jederzeit kündbar
               </p>
             </div>
           </div>
@@ -234,12 +212,11 @@ export default function PricingPage() {
             <div className="space-y-8">
               <div className="border-b border-gray-200 pb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Was passiert, wenn die Beta-Phase endet?
+                  Wie buche ich Premium oder Professional?
                 </h3>
                 <p className="text-gray-600">
-                  Ende Mai 2026 wechseln wir vom Beta-Modus zu unserem regulären Freemium-Modell.
-                  Du behältst alle deine Daten und kannst weiterhin den kostenlosen Basic-Plan nutzen oder
-                  zu Premium/Professional upgraden für erweiterte Features.
+                  Wähle auf dieser Seite deinen Plan und schließe das Abo sicher über Stripe ab.
+                  Premium und Professional kannst du im Kundenportal jederzeit verwalten oder kündigen.
                 </p>
               </div>
 

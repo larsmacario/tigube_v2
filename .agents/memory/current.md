@@ -1,17 +1,13 @@
 # Aktueller Stand
 
 ## Letzte Änderungen
-- **Messenger:** Toasts bei fehlgeschlagenem `getOrCreateConversation` (Betreuer-/Dienstleister-Profil, Owner-Dashboard, Owner-Profil); kein stilles Redirect mehr auf leere `/nachrichten`. `ChatWindow`: Hook-Reihenfolge korrigiert, `conversation.owner?.id` abgesichert. `getCaretakerById`: `userId` aus `users.id` wie in der Suche. ErrorBoundary: Hinweis Cache leeren (Mobile).
-- **Diagnose Live:** Production-Bundle enthält bereits `useToast` für Owner-Dashboard. Supabase-RLS-Migration `20260404130000_conversations_insert_rls.sql` im Repo — auf tigube-DB (Ref `puvzrdnziuowznetwwey`) manuell prüfen/anwenden, kein tigube-MCP in Cursor verknüpft.
+- **Promo/Beta-UI bereinigt:** Keine „3 Monate gratis“-Banner mehr; FAQ/Landingpages/Mitgliedschaften auf Stripe-Preise (4,90 € / 12,90 €) umgestellt. `SubscriptionCard`: `PROMOTION_ACTIVE`-Bug behoben, Portal-Button für Premium. Migration `20260729140000_remove_signup_premium_promo` auf tigube angewendet (`user_has_db_premium` ohne Anmelde-Promo).
 
 ## Fokus
-- Deploy der Messenger-Fixes; danach Smoke-Test auf Mobile (Profil → Nachricht senden → Chat).
-- RLS INSERT-Policy auf Production bestätigen.
+- Deploy Frontend (Vercel) nach Promo-Text-Update.
 
 ## Nächste Schritte
-- Nach Deploy: Nutzerin erneut testen lassen; bei RLS-Fehler Toast zeigt jetzt Supabase-Meldung.
-- Optional: Supabase-MCP für tigube-Projekt anbinden.
+- Smoke-Test Startseite, `/mitgliedschaften`, `/faq` ausgeloggt.
 
 ## Offene Punkte
-- Remote-Status Migration `20260404130000` unbestätigt (Anon-Key im Repo ungültig für Live-Checks).
-- Umfang „Seiten-Baukasten“ weiter offen.
+- Statisches Mockup `tigube_design 2/` enthält noch alte Promo-HTML (nicht produktiv).

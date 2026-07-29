@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle, Crown, Star, X, ExternalLink } from 'lucide-react';
 import Button from './Button';
+import { openStripeBillingPortal } from '../../lib/stripe/stripeService';
 
 interface PaymentSuccessModalProps {
   isOpen: boolean;
@@ -57,8 +58,7 @@ export default function PaymentSuccessModal({
   const planInfo = getPlanInfo();
 
   const handleManageSubscription = () => {
-    // Open Stripe billing portal in new tab
-    window.open('https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00', '_blank');
+    void openStripeBillingPortal();
   };
 
   return (

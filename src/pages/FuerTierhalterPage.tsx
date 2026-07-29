@@ -245,19 +245,19 @@ export default function FuerTierhalterPage() {
         </div>
       </section>
 
-      {/* 5. Promo-Banner */}
-      <section className="bg-gradient-to-r from-amber-500 to-amber-600 text-white">
+      {/* 5. Mitgliedschaft */}
+      <section className="bg-primary-600 text-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-6">
           <p className="text-sm sm:text-base md:text-lg font-medium text-center sm:text-left text-balance leading-snug">
-            ⏰ Jetzt registrieren und 3 Monate Premium kostenlos sichern – Angebot gilt bis 30. April 2026
+            Basis-Nutzung kostenlos – Premium ab 4,90 €/Monat für mehr Kontakte und Filter
           </p>
-          <Link to="/registrieren" className="flex-shrink-0 w-full sm:w-auto">
+          <Link to="/mitgliedschaften" className="flex-shrink-0 w-full sm:w-auto">
             <Button
               variant="primary"
               size="lg"
-              className="w-full sm:w-auto bg-white text-amber-600 hover:bg-amber-50 font-semibold min-h-[48px] sm:whitespace-nowrap"
+              className="w-full sm:w-auto bg-white text-primary-700 hover:bg-primary-50 font-semibold min-h-[48px] sm:whitespace-nowrap"
             >
-              Jetzt kostenlos starten
+              Mitgliedschaften ansehen
             </Button>
           </Link>
         </div>

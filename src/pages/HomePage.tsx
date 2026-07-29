@@ -56,25 +56,17 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 🎁 FREE PREMIUM PROMOTION BANNER */}
-      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
-          {/* Row 1: Headline + Benefits */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-4 text-center">
-            <span className="text-2xl sm:text-3xl">🎁</span>
-            <div>
-              <span className="font-extrabold text-lg sm:text-xl tracking-tight">3 Monate gratis Premium</span>
-              <span className="hidden sm:inline mx-2 opacity-60">·</span>
-              <span className="block sm:inline text-white/90 text-sm sm:text-base mt-0.5 sm:mt-0">Keine Kreditkarte · Keine Kündigung nötig</span>
-            </div>
-          </div>
-          {/* Row 2: Deadline pill */}
-          <div className="mt-2 sm:mt-3 flex justify-center">
-            <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full px-3 sm:px-4 py-1 text-xs sm:text-sm font-medium text-center">
-              <span>🗓️</span>
-              <span>Gilt für alle Anmeldungen bis zum <strong className="ml-1">30. April 2026</strong></span>
-            </span>
-          </div>
+      {/* Mitgliedschaft-Hinweis */}
+      <div className="bg-primary-600 text-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-center text-sm sm:text-base">
+          <span>Suche und Registrierung kostenlos</span>
+          <span className="hidden sm:inline mx-2 opacity-70">·</span>
+          <span className="block sm:inline mt-1 sm:mt-0">
+            Premium ab 4,90 €/Monat –{' '}
+            <Link to="/mitgliedschaften" className="font-semibold underline underline-offset-2 hover:text-primary-100">
+              Mitgliedschaften
+            </Link>
+          </span>
         </div>
       </div>
 

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Check, Crown, Star, Zap, Users, ExternalLink, X } from 'lucide-react';
+import React from 'react';
+import { Check, Crown, Star, Users, ExternalLink } from 'lucide-react';
 import Button from './Button';
 import { useSubscription } from '../../lib/auth/useSubscription';
-import { getPlanPrice, isStripeTestMode } from '../../lib/stripe/stripeConfig';
+import { getPlanPrice } from '../../lib/stripe/stripeConfig';
+import { openStripeBillingPortal } from '../../lib/stripe/stripeService';
 
 interface SubscriptionCardProps {
   plan: 'basic' | 'premium';
@@ -22,10 +23,6 @@ export function SubscriptionCard({
   const { subscription } = useSubscription();
   const planConfig = getPlanConfig(plan, userType);
 
-  // Promotion: alle User die sich bis 30.04.2026 anmelden, erhalten 3 Monate gratis Premium
-  const PROMOTION_ACTIVE = new Date() < new Date('2026-05-01T00:00:00.000Z');
-  const [showPromoModal, setShowPromoModal] = useState(false);
-
   // Check if this is the user's current plan
   const currentPlan = subscription?.plan_type || 'free';
   const isCurrentPlan = currentPlan === plan;
@@ -33,88 +30,16 @@ export function SubscriptionCard({
   // Check if user is in beta
   const isBetaUser = subscription?.status === 'trial';
 
-  // Handle subscription management
   const handleManageSubscription = () => {
-    if (userType === 'owner') {
-      const customerPortalUrl = isStripeTestMode()
-        ? 'https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00'
-        : 'https://billing.stripe.com/p/login/live_00000000000000000000000000';
-      window.open(customerPortalUrl, '_blank');
-    } else {
-      alert('Mitgliedschaftsverwaltung für Betreuer wird in Kürze verfügbar sein.');
-    }
+    void openStripeBillingPortal();
   };
 
-  // Während Promotion: Modal statt Stripe-Checkout
   const handlePremiumClick = () => {
-    if (PROMOTION_ACTIVE) {
-      setShowPromoModal(true);
-    } else {
-      onSelectPlan?.(plan);
-    }
+    onSelectPlan?.(plan);
   };
 
   return (
     <>
-      {/* 🎁 Humorvolles Promotion Modal */}
-      {showPromoModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowPromoModal(false)}
-        >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div
-            className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button */}
-            <button
-              onClick={() => setShowPromoModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Header */}
-            <div className="text-5xl mb-4">🎉</div>
-            <h2 className="text-2xl font-extrabold text-gray-900 mb-3">
-              Woah, stopp mal kurz! 🐾
-            </h2>
-            <p className="text-gray-600 mb-5 leading-relaxed">
-              Du willst Premium kaufen? Süß – aber völlig unnötig!{' '}
-              <span className="font-semibold text-primary-700">
-                Alle Neulinge bekommen gerade 3 Monate Premium gratis.
-              </span>{' '}
-              Ohne Kreditkarte. Ohne Trick. Einfach so – weil wir nett sind. 🤷
-            </p>
-
-            <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 mb-6">
-              <p className="text-sm text-primary-800 font-medium">
-                🗓️ Gilt für alle Anmeldungen bis zum{' '}
-                <strong>30. April 2026</strong>
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                variant="primary"
-                className="flex-1"
-                onClick={() => { window.location.href = '/registrieren'; }}
-              >
-                🐕 Jetzt kostenlos registrieren
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowPromoModal(false)}
-              >
-                Verstanden!
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className={`subscription-card ${className}`}>
         <div className={`
           relative bg-white rounded-xl border-2 p-6 h-full flex flex-col
@@ -179,15 +104,14 @@ export function SubscriptionCard({
           {isBetaUser && plan === 'premium' && (
             <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800 text-center">
-                <strong>Beta-Test:</strong> Alle Features bereits kostenlos verfügbar.<br />
-                Upgrade nur zum Testen der Zahlungsabwicklung.
+                <strong>Testphase:</strong> Premium-Features sind vorübergehend freigeschaltet.
               </p>
             </div>
           )}
           {isBetaUser && plan === 'basic' && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800 text-center">
-                <strong>Beta-Phase:</strong> Alle Features bis 31. Oktober 2025 kostenlos verfügbar
+                <strong>Testphase:</strong> Erweiterte Limits können temporär gelten.
               </p>
             </div>
           )}
@@ -199,7 +123,7 @@ export function SubscriptionCard({
                 <Button variant="outline" disabled className="w-full">
                   Aktueller Plan
                 </Button>
-                {plan === 'premium' && !PROMOTION_ACTIVE && (
+                {plan === 'premium' && (
                   <Button
                     variant="primary"
                     className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 border-green-600 hover:border-green-700"
@@ -214,13 +138,13 @@ export function SubscriptionCard({
               <Button
                 variant={highlighted ? 'primary' : 'outline'}
                 className="w-full"
-                onClick={() => onSelectPlan?.(plan)}
+                onClick={handlePremiumClick}
               >
-                Premium testen (Beta)
+                {`Upgrade zu ${planConfig.name}`}
               </Button>
             ) : isBetaUser ? (
               <Button variant="outline" disabled className="w-full">
-                In Beta verfügbar
+                Im Starter-Plan
               </Button>
             ) : (
               <Button
@@ -411,14 +335,6 @@ export function PricingGrid({ userType, onSelectPlan, onUserTypeChange, classNam
           </div>
         )}
 
-        {isBetaUser && (
-          <div className="mt-6 inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
-            <Zap className="w-4 h-4" />
-            <span className="text-sm font-medium">
-              Beta-Phase: Alle Features kostenlos bis 31. Oktober 2025
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Cards Grid */}

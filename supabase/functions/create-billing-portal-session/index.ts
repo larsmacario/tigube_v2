@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.9';
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
-import { priceIdForPlan, resolvePlanKind, siteUrl } from '../_shared/stripeSubscriptionSync.ts';
+import { siteUrl } from '../_shared/stripeSubscriptionSync.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -28,14 +28,19 @@ serve(async (req) => {
       return jsonResponse({ error: 'Invalid session' }, 401);
     }
 
-    const body = await req.json();
-    const userType = body.userType as string;
-    const plan = body.plan as string;
-    const userEmail = (body.userEmail as string) || user.email;
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
 
-    const planKind = resolvePlanKind(userType, plan);
-    if (!planKind) {
-      return jsonResponse({ error: 'Invalid userType/plan combination' }, 400);
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('users')
+      .select('stripe_customer_id, email')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      return jsonResponse({ error: 'User profile not found' }, 404);
     }
 
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
@@ -44,35 +49,25 @@ serve(async (req) => {
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
-    const priceId = priceIdForPlan(planKind);
-    const base = siteUrl();
+    let customerId = profile.stripe_customer_id;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${base}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${base}/mitgliedschaften?cancelled=true`,
-      client_reference_id: user.id,
-      customer_email: userEmail ?? undefined,
-      locale: 'de',
-      metadata: {
-        userId: user.id,
-        userType,
-        planType: plan,
-      },
-      subscription_data: {
-        metadata: {
-          userId: user.id,
-          userType,
-          planType: plan,
-        },
-      },
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: profile.email || user.email || undefined,
+        metadata: { userId: user.id },
+      });
+      customerId = customer.id;
+      await supabaseAdmin.from('users').update({ stripe_customer_id: customerId }).eq('id', user.id);
+    }
+
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${siteUrl()}/mitgliedschaften`,
     });
 
-    return jsonResponse({ sessionId: session.id, url: session.url });
+    return jsonResponse({ url: portal.url });
   } catch (error) {
-    console.error('create-checkout-session:', error);
+    console.error('create-billing-portal-session:', error);
     return jsonResponse(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       500,

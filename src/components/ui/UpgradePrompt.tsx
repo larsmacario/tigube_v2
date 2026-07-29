@@ -22,19 +22,7 @@ export function UpgradePrompt({
   onUpgrade,
   className = '' 
 }: UpgradePromptProps) {
-  const { subscription, isBetaUser, daysUntilBetaEnd } = useSubscription();
-
-  // Während Beta: Zeige Beta-Hinweis statt Upgrade
-  if (isBetaUser) {
-    return (
-      <BetaUpgradeNotice 
-        variant={variant}
-        daysUntilBetaEnd={daysUntilBetaEnd}
-        onClose={onClose}
-        className={className}
-      />
-    );
-  }
+  const { subscription } = useSubscription();
 
   const getPromptContent = (): {
     title: string;
@@ -228,57 +216,6 @@ function UpgradeContent({
   );
 }
 
-function BetaUpgradeNotice({ 
-  variant, 
-  daysUntilBetaEnd, 
-  onClose, 
-  className 
-}: {
-  variant: 'modal' | 'banner' | 'inline';
-  daysUntilBetaEnd: number;
-  onClose?: () => void;
-  className?: string;
-}) {
-  const isCloseToEnd = daysUntilBetaEnd <= 30;
-
-  const content = (
-    <div className="flex items-center gap-3">
-      <div className="flex-shrink-0">
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 rounded-full">
-          <Crown className="w-5 h-5 text-white" />
-        </div>
-      </div>
-      <div className="flex-1">
-        <h3 className="font-semibold text-gray-900">
-          {isCloseToEnd ? 'Beta endet bald!' : 'Beta-Phase aktiv'}
-        </h3>
-        <p className="text-sm text-gray-600">
-          Du genießt alle Premium-Features kostenlos bis 31. Oktober 2025 
-          ({daysUntilBetaEnd} Tage verbleibend)
-        </p>
-      </div>
-      {onClose && (
-        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-          <X className="w-4 h-4 text-gray-400" />
-        </button>
-      )}
-    </div>
-  );
-
-  if (variant === 'banner') {
-    return (
-      <div className={`bg-gradient-to-r from-green-400 to-blue-500 text-white p-4 rounded-lg ${className}`}>
-        {content}
-      </div>
-    );
-  }
-
-  return (
-    <div className={`bg-green-50 border border-green-200 rounded-lg p-4 ${className}`}>
-      {content}
-    </div>
-  );
-}
 
 // Helper functions
 function getFeatureLabel(featureType?: string): string {

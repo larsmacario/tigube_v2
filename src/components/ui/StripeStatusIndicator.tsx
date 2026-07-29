@@ -105,10 +105,10 @@ export default function StripeStatusIndicator() {
         <div className="mt-3 p-3 bg-blue-100 border border-blue-200 rounded">
           <h4 className="font-medium text-blue-800 mb-2">Für Live-Betrieb benötigt:</h4>
           <div className="text-sm text-blue-700 space-y-1">
-            <div>1. <strong>Live Stripe Keys</strong> in Environment Variables setzen</div>
-            <div>2. <strong>Payment Links</strong> im Stripe Dashboard erstellen</div>
-            <div>3. <strong>App URL</strong> auf Live-Domain setzen</div>
-            <div>4. <strong>Webhook-Endpoints</strong> in Stripe konfigurieren</div>
+            <div>1. <strong>Live Publishable Key</strong> (pk_live_) in Vercel</div>
+            <div>2. <strong>Supabase Secrets</strong>: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, Price-IDs, SITE_URL</div>
+            <div>3. <strong>Edge Functions</strong> deployen + Webhook in Stripe</div>
+            <div>4. Siehe <code className="text-xs">docs/STRIPE_SETUP.md</code></div>
           </div>
         </div>
       )}

@@ -15,6 +15,7 @@ import { supabase } from '../lib/supabase/client';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
 import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
+import { openStripeBillingPortal } from '../lib/stripe/stripeService';
 import { PremiumBadge } from '../components/ui/PremiumBadge';
 import { useSubscription } from '../lib/auth/useSubscription';
 import RegistrationSuccessModal from '../components/ui/RegistrationSuccessModal';
@@ -4892,8 +4893,7 @@ function CaretakerDashboardPage() {
                         variant="primary"
                         onClick={() => {
                           // Öffne Stripe Customer Portal
-                          const customerPortalUrl = 'https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00';
-                          window.open(customerPortalUrl, '_blank');
+                          void openStripeBillingPortal();
                         }}
                         className="flex items-center gap-2"
                       >
@@ -4953,8 +4953,7 @@ function CaretakerDashboardPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          const customerPortalUrl = 'https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00';
-                          window.open(customerPortalUrl, '_blank');
+                          void openStripeBillingPortal();
                         }}
                       >
                         Alle Rechnungen anzeigen

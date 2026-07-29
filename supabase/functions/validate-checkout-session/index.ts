@@ -1,90 +1,62 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.9';
-import Stripe from 'https://esm.sh/stripe@11.1.0?target=deno';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
+import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+  if (req.method !== 'POST') {
+    return jsonResponse({ error: 'Method not allowed' }, 405);
+  }
 
   try {
-    // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') as string, {
-      apiVersion: '2023-10-16',
-    });
+    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+    if (!stripeKey) {
+      return jsonResponse({ error: 'Stripe not configured' }, 500);
+    }
 
     const { sessionId } = await req.json();
-
     if (!sessionId) {
-      return new Response(
-        JSON.stringify({ error: 'Session ID is required' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      return jsonResponse({ error: 'sessionId required' }, 400);
     }
 
-    // Retrieve the checkout session
+    const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['subscription', 'customer']
+      expand: ['subscription'],
     });
 
-    // Validate session status
-    if (session.payment_status !== 'paid') {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Payment not completed',
-          session: {
-            id: session.id,
-            payment_status: session.payment_status,
-            status: session.status
-          }
-        }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Return session data for success page
-    return new Response(
-      JSON.stringify({ 
+    const paid = session.payment_status === 'paid' || session.status === 'complete';
+    if (!paid) {
+      return jsonResponse({
+        success: false,
+        error: 'Payment not completed',
         session: {
           id: session.id,
           payment_status: session.payment_status,
-          customer_email: session.customer_details?.email,
-          amount_total: session.amount_total,
-          currency: session.currency,
-          metadata: session.metadata,
-          subscription: session.subscription
-        }
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
+          status: session.status,
+        },
+      }, 400);
+    }
 
+    return jsonResponse({
+      success: true,
+      session: {
+        id: session.id,
+        payment_status: session.payment_status,
+        status: session.status,
+        amount_total: session.amount_total,
+        currency: session.currency,
+        customer_email: session.customer_details?.email,
+        client_reference_id: session.client_reference_id,
+        metadata: session.metadata,
+      },
+    });
   } catch (error) {
-    console.error('Error validating checkout session:', error);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        details: error.message 
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+    console.error('validate-checkout-session:', error);
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      500,
     );
   }
-}); 
+});

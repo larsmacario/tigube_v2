@@ -178,8 +178,12 @@ const faqItems: AccordionItem[] = [
     title: 'Was kostet die Mitgliedschaft als Betreuungsperson?',
     content: (
       <p className="text-gray-700">
-        Du startest mit 3 Monaten gratis Premium (Anmeldung bis 30. April 2026). Danach kannst du
-        zwischen verschiedenen Mitgliedschaftsoptionen wählen.
+        Die Registrierung und Basis-Funktionen sind kostenlos. Für erweiterte Features gibt es
+        Premium (ab 4,90 €/Monat) – Details auf der{' '}
+        <Link to="/mitgliedschaften" className="text-primary-600 hover:underline">
+          Preisseite
+        </Link>
+        .
       </p>
     ),
   },
@@ -332,19 +336,19 @@ export default function FuerBetreuungspersonenPage() {
         </div>
       </section>
 
-      {/* 6. Promo Banner */}
-      <section className="bg-gradient-to-r from-amber-500 to-amber-600 text-white">
+      {/* 6. Mitgliedschaft */}
+      <section className="bg-primary-600 text-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-6">
           <p className="text-sm sm:text-base md:text-lg font-medium text-center sm:text-left text-balance leading-snug">
-            ⏰ Früh dabei sein zahlt sich aus – 3 Monate Premium gratis bis 30. April 2026
+            Profil und Anfragen kostenlos – Professional ab 12,90 €/Monat für maximale Sichtbarkeit
           </p>
-          <Link to="/registrieren?type=caretaker" className="flex-shrink-0 w-full sm:w-auto">
+          <Link to="/mitgliedschaften" className="flex-shrink-0 w-full sm:w-auto">
             <Button
               variant="primary"
               size="lg"
-              className="w-full sm:w-auto bg-white text-amber-600 hover:bg-amber-50 font-semibold min-h-[48px] sm:whitespace-nowrap"
+              className="w-full sm:w-auto bg-white text-primary-700 hover:bg-primary-50 font-semibold min-h-[48px] sm:whitespace-nowrap"
             >
-              Jetzt registrieren
+              Mitgliedschaften ansehen
             </Button>
           </Link>
         </div>

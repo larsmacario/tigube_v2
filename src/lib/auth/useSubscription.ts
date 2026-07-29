@@ -41,6 +41,8 @@ export function useSubscription() {
     hasFeature,
     canUseFeature,
     isPremiumUser,
-    isPremiumExpired
+    isPremiumExpired,
+    isBetaUser: false,
+    daysUntilBetaEnd: 0,
   };
 } 
