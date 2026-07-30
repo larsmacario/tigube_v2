@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Search } from 'lucide-react'
-import type { ConversationWithUsers } from '../../lib/supabase/types'
+import type { Conversation, ConversationWithUsers } from '../../lib/supabase/types'
 import ConversationItem from './ConversationItem'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { subscribeToConversations, ConnectionManager } from '../../lib/supabase/chatService'
@@ -10,92 +10,89 @@ interface ConversationListProps {
   currentUserId: string
   selectedConversationId?: string
   onConversationSelect: (conversationId: string) => void
-  onConversationUpdate?: (conversations: ConversationWithUsers[]) => void
+  onConversationUpdate?: (updated?: Conversation) => void
   onConversationDeleted?: (deletedConversationId: string) => void
-  isLoading?: boolean
+  isInitialLoad?: boolean
+  isRefreshing?: boolean
   error?: string | null
 }
 
-function ConversationList({ 
-  conversations, 
+function ConversationList({
+  conversations,
   currentUserId,
   selectedConversationId,
   onConversationSelect,
   onConversationUpdate,
   onConversationDeleted,
-  isLoading = false,
-  error = null
+  isInitialLoad = false,
+  isRefreshing = false,
+  error = null,
 }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const connectionManagerRef = useRef<ConnectionManager>(new ConnectionManager())
+  const onConversationUpdateRef = useRef(onConversationUpdate)
+  const onConversationDeletedRef = useRef(onConversationDeleted)
 
-  // Setup real-time conversation updates
+  onConversationUpdateRef.current = onConversationUpdate
+  onConversationDeletedRef.current = onConversationDeleted
+
   useEffect(() => {
     const setupRealtimeSubscriptions = () => {
       const connectionManager = connectionManagerRef.current
 
-      // Subscribe to conversation updates
       const conversationsSubscription = subscribeToConversations(
         currentUserId,
         (updatedConversation) => {
-          // Trigger parent component to refresh conversations
-          onConversationUpdate?.(conversations)
+          onConversationUpdateRef.current?.(updatedConversation)
         },
         (deletedConversationId) => {
-          // Handle conversation deletion
-          onConversationDeleted?.(deletedConversationId)
+          onConversationDeletedRef.current?.(deletedConversationId)
         },
-        (error) => {
-          console.error('Conversations subscription error:', error)
+        (subscriptionError) => {
+          console.error('Conversations subscription error:', subscriptionError)
         }
       )
 
       connectionManager.addSubscription('conversations', conversationsSubscription)
     }
 
-    // Monitor online status
     const handleOnlineStatus = () => {
       if (navigator.onLine) {
-        // Reconnect when coming back online
         connectionManagerRef.current.handleReconnect(setupRealtimeSubscriptions)
       }
     }
 
     setupRealtimeSubscriptions()
 
-    // Add online/offline listeners
     window.addEventListener('online', handleOnlineStatus)
     window.addEventListener('offline', handleOnlineStatus)
 
     return () => {
-      // Cleanup subscriptions
       connectionManagerRef.current.removeAllSubscriptions()
       window.removeEventListener('online', handleOnlineStatus)
       window.removeEventListener('offline', handleOnlineStatus)
     }
-  }, [currentUserId, conversations, onConversationUpdate, onConversationDeleted])
+  }, [currentUserId])
 
-  // Filter conversations based on search query
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) {
       return conversations
     }
 
     const query = searchQuery.toLowerCase()
-    
+
     return conversations.filter((conversation) => {
-      const otherUser = conversation.owner.id === currentUserId 
-        ? conversation.caretaker 
-        : conversation.owner
-      
+      const otherUser =
+        conversation.owner.id === currentUserId ? conversation.caretaker : conversation.owner
+
       const fullName = `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.toLowerCase()
       const lastMessage = conversation.last_message?.content?.toLowerCase() || ''
-      
+
       return fullName.includes(query) || lastMessage.includes(query)
     })
   }, [conversations, currentUserId, searchQuery])
 
-  if (isLoading) {
+  if (isInitialLoad && conversations.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <LoadingSpinner />
@@ -103,7 +100,7 @@ function ConversationList({
     )
   }
 
-  if (error) {
+  if (error && conversations.length === 0) {
     return (
       <div className="h-full flex items-center justify-center p-4">
         <div className="text-center">
@@ -116,7 +113,12 @@ function ConversationList({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Search Header */}
+      {isRefreshing && (
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-1.5 text-center">
+          <p className="text-xs text-gray-500">Aktualisiere …</p>
+        </div>
+      )}
+
       <div className="bg-white border-b-2 border-gray-200 px-4 py-4 h-[72px] flex items-center">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -130,7 +132,6 @@ function ConversationList({
         </div>
       </div>
 
-      {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
         {filteredConversations.length === 0 ? (
           <div className="h-full flex items-center justify-center p-4">
@@ -138,9 +139,7 @@ function ConversationList({
               {searchQuery ? (
                 <>
                   <p className="text-gray-500 font-medium">Keine Ergebnisse gefunden</p>
-                  <p className="text-gray-400 text-sm mt-1">
-                    Versuche einen anderen Suchbegriff
-                  </p>
+                  <p className="text-gray-400 text-sm mt-1">Versuche einen anderen Suchbegriff</p>
                 </>
               ) : (
                 <>
@@ -167,7 +166,6 @@ function ConversationList({
         )}
       </div>
 
-      {/* Footer Info */}
       {filteredConversations.length > 0 && (
         <div className="p-2 border-t border-gray-200 bg-gray-50">
           <p className="text-xs text-gray-500 text-center">
@@ -179,4 +177,4 @@ function ConversationList({
   )
 }
 
-export default ConversationList 
+export default ConversationList

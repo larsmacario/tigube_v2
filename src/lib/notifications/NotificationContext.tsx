@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react'
+import { createContext, useContext, ReactNode, useMemo } from 'react'
 import { useUnreadMessagesCount } from '../../hooks/useUnreadMessagesCount'
 
 interface NotificationContextType {
@@ -16,11 +16,14 @@ interface NotificationProviderProps {
 export function NotificationProvider({ children }: NotificationProviderProps) {
   const { unreadCount, isLoading, refresh } = useUnreadMessagesCount()
 
-  const value = {
-    unreadCount,
-    isLoading,
-    refreshUnreadCount: refresh
-  }
+  const value = useMemo(
+    () => ({
+      unreadCount,
+      isLoading,
+      refreshUnreadCount: refresh,
+    }),
+    [unreadCount, isLoading, refresh]
+  )
 
   return (
     <NotificationContext.Provider value={value}>

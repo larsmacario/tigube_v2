@@ -34,6 +34,7 @@ export interface SendMessageRequest {
   conversation_id: string
   content: string
   message_type?: string
+  sender_id?: string
 }
 
 export interface GetMessagesOptions {

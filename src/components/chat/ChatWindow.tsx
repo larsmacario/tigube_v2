@@ -27,7 +27,11 @@ interface ChatWindowProps {
   currentUserId: string
   onBack?: () => void
   onConversationDeleted?: (conversationId: string) => void
-  onMessageSent?: () => void
+  onMessageSent?: (message: {
+    content: string
+    created_at: string | null
+    sender_id: string
+  }) => void
 }
 
 type ChatUserProfile = Pick<User, 'id' | 'first_name' | 'last_name' | 'profile_photo_url'>
@@ -68,9 +72,14 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
   const connectionManagerRef = useRef<ConnectionManager>(new ConnectionManager())
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const moreMenuRef = useRef<HTMLDivElement>(null)
-  
-  // Get notification functions
+  const lastMessageIdRef = useRef<string | null>(null)
+  const lastReconnectAtRef = useRef(0)
+  const loadedMessagesForRef = useRef<string | null>(null)
+  const RECONNECT_MIN_INTERVAL_MS = 5000
+
   const { refreshUnreadCount } = useNotifications()
+  const refreshUnreadCountRef = useRef(refreshUnreadCount)
+  refreshUnreadCountRef.current = refreshUnreadCount
 
   const otherUserId = useMemo(() => {
     if (conversation.owner_id === currentUserId) {
@@ -111,7 +120,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
           id: otherUserId,
           first_name: '',
           last_name: '',
-          profile_photo_url: null
+          profile_photo_url: null,
         })
       }
 
@@ -127,7 +136,19 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     return () => {
       cancelled = true
     }
-  }, [conversation, currentUserId, otherUserId])
+  }, [
+    conversation.id,
+    conversation.owner_id,
+    conversation.caretaker_id,
+    conversation.owner?.id,
+    conversation.owner?.first_name,
+    conversation.owner?.last_name,
+    conversation.caretaker?.id,
+    conversation.caretaker?.first_name,
+    conversation.caretaker?.last_name,
+    currentUserId,
+    otherUserId,
+  ])
 
   const getDisplayName = () => {
     if (!otherUser) return 'Unbekannt';
@@ -180,7 +201,10 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     }
 
     const loadMessages = async () => {
-      setIsLoading(true)
+      const alreadyLoaded = loadedMessagesForRef.current === conversation.id
+      if (!alreadyLoaded) {
+        setIsLoading(true)
+      }
       setError(null)
       setRealtimeDegraded(false)
 
@@ -193,13 +217,23 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         setError(loadError)
       } else {
         setMessages(data || [])
+        loadedMessagesForRef.current = conversation.id
         if (data && data.length > 0) {
           await markAsRead(conversation.id, currentUserId)
-          refreshUnreadCount()
+          refreshUnreadCountRef.current()
         }
       }
 
       setIsLoading(false)
+    }
+
+    const scheduleReconnect = (setupFn: () => void) => {
+      const now = Date.now()
+      if (now - lastReconnectAtRef.current < RECONNECT_MIN_INTERVAL_MS) {
+        return
+      }
+      lastReconnectAtRef.current = now
+      connectionManagerRef.current.handleReconnect(setupFn)
     }
 
     const setupRealtimeSubscriptions = () => {
@@ -210,16 +244,29 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         conversation.id,
         (newMessage) => {
           setRealtimeDegraded(false)
-          setMessages(prev => {
-            if (prev.some(msg => msg.id === newMessage.id)) {
+          setMessages((prev) => {
+            if (prev.some((msg) => msg.id === newMessage.id)) {
               return prev
+            }
+            if (
+              newMessage.sender_id === currentUserId &&
+              prev.some(
+                (msg) =>
+                  msg.id.startsWith('pending-') &&
+                  msg.content === newMessage.content &&
+                  msg.sender_id === currentUserId
+              )
+            ) {
+              return prev
+                .filter((msg) => !(msg.id.startsWith('pending-') && msg.content === newMessage.content))
+                .concat(newMessage)
             }
             return [...prev, newMessage]
           })
 
           if (newMessage.sender_id !== currentUserId) {
             markAsRead(conversation.id, currentUserId).then(() => {
-              refreshUnreadCount()
+              refreshUnreadCountRef.current()
             })
           }
 
@@ -241,7 +288,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         (subscriptionError) => {
           console.error('Messages subscription error:', subscriptionError)
           setRealtimeDegraded(true)
-          connectionManagerRef.current.handleReconnect(setupRealtimeSubscriptions)
+          scheduleReconnect(setupRealtimeSubscriptions)
         }
       )
 
@@ -290,8 +337,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     const handleOnlineStatus = () => {
       setIsOnline(navigator.onLine)
       if (!navigator.onLine) {
-        // Handle reconnection when coming back online
-        connectionManagerRef.current.handleReconnect(setupRealtimeSubscriptions)
+        scheduleReconnect(setupRealtimeSubscriptions)
       }
     }
 
@@ -303,53 +349,107 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     window.addEventListener('offline', handleOnlineStatus)
 
     return () => {
-      // Cleanup subscriptions
       connectionManagerRef.current.removeAllSubscriptions()
       window.removeEventListener('online', handleOnlineStatus)
       window.removeEventListener('offline', handleOnlineStatus)
-      
-      // Clear typing timeout
+
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current)
       }
     }
-  }, [conversation.id, currentUserId, otherUserId, refreshUnreadCount])
+  }, [conversation.id, currentUserId, otherUserId])
 
-  // Scroll to bottom when new messages arrive
   useEffect(() => {
-    if (messagesEndRef.current && !isLoading) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    loadedMessagesForRef.current = null
+    lastMessageIdRef.current = null
+  }, [conversation.id])
+
+  // Scroll to bottom only when a new message arrives
+  useEffect(() => {
+    if (isLoading || messages.length === 0) {
+      return
+    }
+
+    const lastMessage = messages[messages.length - 1]
+    const isNewMessage = lastMessage.id !== lastMessageIdRef.current
+    const isInitialScroll = lastMessageIdRef.current === null
+
+    if (!isNewMessage && !isInitialScroll) {
+      return
+    }
+
+    lastMessageIdRef.current = lastMessage.id
+
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: isInitialScroll ? 'auto' : 'smooth',
+      })
     }
   }, [messages, isLoading])
 
-  // Handle sending new message
+  useEffect(() => {
+    lastMessageIdRef.current = null
+  }, [conversation.id])
+
+  // Handle sending new message (optimistic UI)
   const handleSendMessage = async (content: string) => {
-    const { data, error: sendError } = await sendMessage({
+    const optimisticId = `pending-${Date.now()}`
+    const selfProfile =
+      conversation.owner_id === currentUserId ? conversation.owner : conversation.caretaker
+
+    const optimisticMessage: MessageWithSender = {
+      id: optimisticId,
       conversation_id: conversation.id,
-      content
+      sender_id: currentUserId,
+      content,
+      message_type: 'text',
+      read_at: null,
+      edited_at: null,
+      created_at: new Date().toISOString(),
+      sender: selfProfile ?? {
+        id: currentUserId,
+        first_name: '',
+        last_name: '',
+        profile_photo_url: null,
+      },
+    }
+
+    setMessages((prev) => [...prev, optimisticMessage])
+
+    onMessageSent?.({
+      content,
+      created_at: optimisticMessage.created_at,
+      sender_id: currentUserId,
     })
 
-    if (sendError) {
-      throw new Error(sendError)
+    const { data, error: sendError } = await sendMessage({
+      conversation_id: conversation.id,
+      content,
+      sender_id: currentUserId,
+    })
+
+    if (sendError || !data) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
+      throw new Error(sendError || 'Nachricht konnte nicht gesendet werden')
     }
 
-    if (data) {
-      // Create a MessageWithSender object for the new message
-      const newMessageWithSender: MessageWithSender = {
-        ...data,
-        sender: {
-          id: currentUserId,
-          first_name: 'Du', // Placeholder - will be replaced by real user data in future
-          last_name: '',
-          profile_photo_url: null
-        }
+    const confirmedMessage: MessageWithSender = {
+      ...data,
+      sender: selfProfile ?? {
+        id: currentUserId,
+        first_name: '',
+        last_name: '',
+        profile_photo_url: null,
+      },
+    }
+
+    setMessages((prev) => {
+      const withoutPending = prev.filter((m) => m.id !== optimisticId)
+      if (withoutPending.some((m) => m.id === data.id)) {
+        return withoutPending
       }
-
-      setMessages(prev => [...prev, newMessageWithSender])
-      
-      // Notify parent component that a message was sent
-      onMessageSent?.()
-    }
+      return [...withoutPending, confirmedMessage]
+    })
   }
 
   // Handle clicking outside the more menu

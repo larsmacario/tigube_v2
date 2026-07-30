@@ -258,16 +258,21 @@ export async function sendMessage(
   request: SendMessageRequest
 ): Promise<{ data: Message | null; error: string | null }> {
   try {
-    // Get current user ID from auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return { data: null, error: 'User not authenticated' }
+    let senderId = request.sender_id
+
+    if (!senderId) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+      if (authError || !user) {
+        return { data: null, error: 'User not authenticated' }
+      }
+
+      senderId = user.id
     }
 
     const messageData: MessageInsert = {
       conversation_id: request.conversation_id,
-      sender_id: user.id,
+      sender_id: senderId,
       content: request.content,
       message_type: request.message_type || 'text'
     }

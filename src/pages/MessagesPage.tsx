@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { getUserConversations, getConversationWithUsers } from '../lib/supabase/chatService'
-import type { ConversationWithUsers } from '../lib/supabase/types'
+import type { ConversationWithUsers, Conversation } from '../lib/supabase/types'
 import ConversationList from '../components/chat/ConversationList'
 import ChatWindow from '../components/chat/ChatWindow'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
@@ -10,11 +10,13 @@ import { useNotifications } from '../lib/notifications/NotificationContext'
 import { useAuth } from '../lib/auth/AuthContext'
 
 const DEEP_LINK_RETRY_MS = 400
+const REFRESH_DEBOUNCE_MS = 500
 
 function MessagesPage() {
   const [conversations, setConversations] = useState<ConversationWithUsers[]>([])
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithUsers | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [isRefreshingList, setIsRefreshingList] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [isResolvingChat, setIsResolvingChat] = useState(false)
@@ -25,6 +27,9 @@ function MessagesPage() {
   const { user, loading: authLoading } = useAuth()
 
   const currentUserId = user?.id ?? null
+  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevConversationIdRef = useRef<string | undefined>(undefined)
+  const hasLoadedOnceRef = useRef(false)
 
   const resolveConversationFromUrl = useCallback(
     async (list: ConversationWithUsers[], userId: string, targetId: string) => {
@@ -49,17 +54,64 @@ function MessagesPage() {
     []
   )
 
-  // Load conversations
+  const requestFullListRefresh = useCallback(() => {
+    if (refreshDebounceRef.current) {
+      clearTimeout(refreshDebounceRef.current)
+    }
+
+    refreshDebounceRef.current = setTimeout(() => {
+      setRefreshTrigger((prev) => prev + 1)
+    }, REFRESH_DEBOUNCE_MS)
+  }, [])
+
+  const handleConversationRealtimeUpdate = useCallback(
+    (updated?: Conversation) => {
+      if (!updated) {
+        requestFullListRefresh()
+        return
+      }
+
+      setConversations((prev) => {
+        const index = prev.findIndex((c) => c.id === updated.id)
+        if (index === -1) {
+          requestFullListRefresh()
+          return prev
+        }
+
+        const next = [...prev]
+        next[index] = { ...next[index], ...updated }
+        next.sort((a, b) => {
+          const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
+          const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
+          return bTime - aTime
+        })
+        return next
+      })
+    },
+    [requestFullListRefresh]
+  )
+
+  // Initial load + conversation switch (not background refresh)
   useEffect(() => {
     if (authLoading || !currentUserId) return
+
+    const isConversationSwitch = conversationId !== prevConversationIdRef.current
+    prevConversationIdRef.current = conversationId
 
     let cancelled = false
 
     const loadConversations = async () => {
-      setIsLoading(true)
+      if (!hasLoadedOnceRef.current) {
+        setIsInitialLoad(true)
+      }
+
       setError(null)
-      if (conversationId) {
+
+      if (conversationId && (isConversationSwitch || !hasLoadedOnceRef.current)) {
         setIsResolvingChat(true)
+        if (isConversationSwitch) {
+          setSelectedConversation((prev) => (prev?.id === conversationId ? prev : null))
+        }
       }
 
       const { data, error: loadError } = await getUserConversations(currentUserId)
@@ -69,6 +121,7 @@ function MessagesPage() {
       if (loadError) {
         setError(loadError)
         setConversations([])
+        setSelectedConversation(null)
       } else {
         const list = data || []
         setConversations(list)
@@ -84,7 +137,8 @@ function MessagesPage() {
       }
 
       if (!cancelled) {
-        setIsLoading(false)
+        hasLoadedOnceRef.current = true
+        setIsInitialLoad(false)
         setIsResolvingChat(false)
       }
     }
@@ -94,7 +148,41 @@ function MessagesPage() {
     return () => {
       cancelled = true
     }
-  }, [currentUserId, authLoading, refreshTrigger, conversationId, resolveConversationFromUrl])
+  }, [currentUserId, authLoading, conversationId, resolveConversationFromUrl])
+
+  // Silent background refresh (sidebar metadata only)
+  useEffect(() => {
+    if (authLoading || !currentUserId || refreshTrigger === 0 || !hasLoadedOnceRef.current) {
+      return
+    }
+
+    let cancelled = false
+
+    const refreshList = async () => {
+      setIsRefreshingList(true)
+
+      const { data, error: loadError } = await getUserConversations(currentUserId)
+
+      if (cancelled) return
+
+      if (loadError) {
+        setError(loadError)
+      } else {
+        const list = data || []
+        setConversations(list)
+        // Sidebar refresh only – keep active chat mounted with stable props
+      }
+
+      refreshUnreadCount()
+      setIsRefreshingList(false)
+    }
+
+    refreshList()
+
+    return () => {
+      cancelled = true
+    }
+  }, [refreshTrigger, currentUserId, authLoading, refreshUnreadCount])
 
   const handleConversationSelect = (id: string) => {
     navigate(`/nachrichten/${id}`, { replace: true })
@@ -106,10 +194,51 @@ function MessagesPage() {
     }
   }
 
-  const handleConversationUpdate = () => {
-    setRefreshTrigger((prev) => prev + 1)
-    refreshUnreadCount()
-  }
+  const handleMessageSent = useCallback(
+    (message: { content: string; created_at: string | null; sender_id: string }) => {
+      const convId = selectedConversation?.id
+      if (!convId || !message.created_at) return
+
+      const lastMessage = {
+        content: message.content,
+        created_at: message.created_at,
+        sender_id: message.sender_id,
+      }
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId
+            ? {
+                ...c,
+                last_message: lastMessage,
+                last_message_at: message.created_at,
+                unread_count: 0,
+              }
+            : c
+        )
+      )
+
+      setSelectedConversation((prev) =>
+        prev && prev.id === convId
+          ? {
+              ...prev,
+              last_message: lastMessage,
+              last_message_at: message.created_at,
+              unread_count: 0,
+            }
+          : prev
+      )
+    },
+    [selectedConversation?.id]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (refreshDebounceRef.current) {
+        clearTimeout(refreshDebounceRef.current)
+      }
+    }
+  }, [])
 
   const handleBackToList = () => {
     navigate('/nachrichten', { replace: true })
@@ -133,9 +262,12 @@ function MessagesPage() {
     )
   }
 
-  const showChatLoading = Boolean(conversationId && (isResolvingChat || isLoading))
-  const showChatNotFound =
-    Boolean(conversationId && !isResolvingChat && !isLoading && !selectedConversation)
+  const showChatLoading = Boolean(
+    conversationId && isResolvingChat && !selectedConversation
+  )
+  const showChatNotFound = Boolean(
+    conversationId && !isResolvingChat && !isInitialLoad && !selectedConversation
+  )
 
   return (
     <div className="bg-gray-50" style={{ height: 'calc(100vh - 80px)' }}>
@@ -164,9 +296,10 @@ function MessagesPage() {
               currentUserId={currentUserId}
               selectedConversationId={selectedConversation?.id}
               onConversationSelect={handleConversationSelect}
-              onConversationUpdate={handleConversationUpdate}
+              onConversationUpdate={handleConversationRealtimeUpdate}
               onConversationDeleted={handleConversationDeleted}
-              isLoading={isLoading}
+              isInitialLoad={isInitialLoad}
+              isRefreshing={isRefreshingList}
               error={error}
             />
           </div>
@@ -183,11 +316,12 @@ function MessagesPage() {
               </div>
             ) : selectedConversation ? (
               <ChatWindow
+                key={selectedConversation.id}
                 conversation={selectedConversation}
                 currentUserId={currentUserId}
                 onBack={handleBackToList}
                 onConversationDeleted={handleConversationDeleted}
-                onMessageSent={handleConversationUpdate}
+                onMessageSent={handleMessageSent}
               />
             ) : showChatNotFound ? (
               <div className="h-full flex items-center justify-center p-8">
