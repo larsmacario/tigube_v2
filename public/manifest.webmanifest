@@ -1,0 +1,23 @@
+{
+  "name": "tigube",
+  "short_name": "tigube",
+  "description": "tierisch gut betreut – Haustierbetreuung finden und verwalten",
+  "start_url": "/nachrichten",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/Image/Logos/tigube_logo_klein.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/Image/Logos/tigube_logo_klein.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

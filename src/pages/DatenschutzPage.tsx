@@ -431,7 +431,28 @@ function DatenschutzPage() {
                 </div>
 
                 <div>
-                  <h4 className="text-base font-semibold text-gray-800 mb-2">c) Newsletter-Versand</h4>
+                  <h4 className="text-base font-semibold text-gray-800 mb-2">
+                    c) Chat-E-Mail-Erinnerungen (Nachrichten)
+                  </h4>
+                  <p className="leading-relaxed mb-2">
+                    Wenn du neue Nachrichten auf tigube erhältst und diese innerhalb einer Stunde nicht liest, können wir
+                    dir eine E-Mail-Erinnerung senden. Der Versand erfolgt über unseren eigenen SMTP-Mailserver. In der
+                    E-Mail werden weder Absendernamen noch die Anzahl ungelesener Nachrichten genannt — nur ein Hinweis,
+                    dass neue Nachrichten vorliegen, mit Link zur Nachrichten-Übersicht.
+                  </p>
+                  <p className="mb-2">
+                    Verarbeitete Daten: E-Mail-Adresse aus deinem Konto, Zeitpunkt der geplanten Erinnerung (interne
+                    Reminder-Tabelle). Die Erinnerung wird gelöscht, sobald du alle Nachrichten gelesen hast.
+                  </p>
+                  <p className="mb-2">
+                    <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung bzw. vorvertragliche
+                    Maßnahmen im Rahmen der Plattform-Kommunikation). Du kannst E-Mail-Erinnerungen jederzeit in den
+                    Benachrichtigungseinstellungen im Chat deaktivieren.
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="text-base font-semibold text-gray-800 mb-2">d) Newsletter-Versand</h4>
                   <p className="leading-relaxed mb-2">
                     <strong>Brevo (ehem. Sendinblue):</strong> Für den Versand von Newslettern nutzen wir die Brevo GmbH,
                     Köpenicker Str. 126, 10179 Berlin, Deutschland. Wenn Sie unseren Newsletter abonnieren, werden Ihre
@@ -455,7 +476,7 @@ function DatenschutzPage() {
                 </div>
 
                 <div>
-                  <h4 className="text-base font-semibold text-gray-800 mb-2">d) Marketing (Google Ads, Facebook Ads)</h4>
+                  <h4 className="text-base font-semibold text-gray-800 mb-2">e) Marketing (Google Ads, Facebook Ads)</h4>
                   <div className="space-y-3 leading-relaxed">
                     <p>
                       <strong>Google Ads:</strong> Wir nutzen die Dienste Google Ads der Google Ireland Limited. Google Ads

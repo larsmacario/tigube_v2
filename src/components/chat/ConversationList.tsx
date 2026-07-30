@@ -3,7 +3,9 @@ import { Search } from 'lucide-react'
 import type { Conversation, ConversationWithUsers } from '../../lib/supabase/types'
 import ConversationItem from './ConversationItem'
 import LoadingSpinner from '../ui/LoadingSpinner'
+import NotificationBadge from '../ui/NotificationBadge'
 import { subscribeToConversations, ConnectionManager } from '../../lib/supabase/chatService'
+import { useNotifications } from '../../lib/notifications/NotificationContext'
 
 interface ConversationListProps {
   conversations: ConversationWithUsers[]
@@ -13,7 +15,6 @@ interface ConversationListProps {
   onConversationUpdate?: (updated?: Conversation) => void
   onConversationDeleted?: (deletedConversationId: string) => void
   isInitialLoad?: boolean
-  isRefreshing?: boolean
   error?: string | null
 }
 
@@ -25,10 +26,10 @@ function ConversationList({
   onConversationUpdate,
   onConversationDeleted,
   isInitialLoad = false,
-  isRefreshing = false,
   error = null,
 }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const { unreadCount } = useNotifications()
   const connectionManagerRef = useRef<ConnectionManager>(new ConnectionManager())
   const onConversationUpdateRef = useRef(onConversationUpdate)
   const onConversationDeletedRef = useRef(onConversationDeleted)
@@ -113,13 +114,18 @@ function ConversationList({
 
   return (
     <div className="h-full flex flex-col">
-      {isRefreshing && (
-        <div className="bg-gray-50 border-b border-gray-200 px-4 py-1.5 text-center">
-          <p className="text-xs text-gray-500">Aktualisiere …</p>
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-gray-900">Nachrichten</h1>
+            <NotificationBadge count={unreadCount} />
+          </div>
+          {unreadCount > 0 && (
+            <span className="text-sm text-gray-500">
+              {unreadCount} ungelesen
+            </span>
+          )}
         </div>
-      )}
-
-      <div className="bg-white border-b-2 border-gray-200 px-4 py-4 h-[72px] flex items-center">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input

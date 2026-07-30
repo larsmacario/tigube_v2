@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../lib/auth/AuthContext'
-import { getUserConversations } from '../lib/supabase/chatService'
+import { getTotalUnreadCount } from '../lib/supabase/chatService'
 
 export function useUnreadMessagesCount() {
   const [unreadCount, setUnreadCount] = useState(0)
@@ -15,26 +15,14 @@ export function useUnreadMessagesCount() {
 
     setIsLoading(true)
     try {
-      const { data: conversations, error } = await getUserConversations(userProfile.id)
+      const { data, error } = await getTotalUnreadCount(userProfile.id)
 
-      if (error || !conversations) {
+      if (error) {
         setUnreadCount(0)
         return
       }
 
-      const totalUnread = conversations.reduce((total, conversation) => {
-        return total + (conversation.unread_count || 0)
-      }, 0)
-
-      if (import.meta.env.DEV) {
-        console.log('Unread messages count:', {
-          conversations: conversations.length,
-          conversationsWithUnread: conversations.filter((c) => (c.unread_count || 0) > 0),
-          totalUnread,
-        })
-      }
-
-      setUnreadCount(totalUnread)
+      setUnreadCount(data)
     } catch (error) {
       console.error('Error fetching unread count:', error)
       setUnreadCount(0)
@@ -59,4 +47,4 @@ export function useUnreadMessagesCount() {
     isLoading,
     refresh: updateUnreadCount,
   }
-} 
+}

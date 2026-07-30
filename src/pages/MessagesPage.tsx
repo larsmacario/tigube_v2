@@ -8,6 +8,7 @@ import ChatWindow from '../components/chat/ChatWindow'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import { useNotifications } from '../lib/notifications/NotificationContext'
 import { useAuth } from '../lib/auth/AuthContext'
+import { MESSAGES_CHANGED_EVENT } from '../hooks/useUnreadMessagesRealtime'
 
 const DEEP_LINK_RETRY_MS = 400
 const REFRESH_DEBOUNCE_MS = 500
@@ -16,7 +17,6 @@ function MessagesPage() {
   const [conversations, setConversations] = useState<ConversationWithUsers[]>([])
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithUsers | null>(null)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const [isRefreshingList, setIsRefreshingList] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [isResolvingChat, setIsResolvingChat] = useState(false)
@@ -159,8 +159,6 @@ function MessagesPage() {
     let cancelled = false
 
     const refreshList = async () => {
-      setIsRefreshingList(true)
-
       const { data, error: loadError } = await getUserConversations(currentUserId)
 
       if (cancelled) return
@@ -174,7 +172,6 @@ function MessagesPage() {
       }
 
       refreshUnreadCount()
-      setIsRefreshingList(false)
     }
 
     refreshList()
@@ -183,6 +180,18 @@ function MessagesPage() {
       cancelled = true
     }
   }, [refreshTrigger, currentUserId, authLoading, refreshUnreadCount])
+
+  // Refresh conversation list when messages change (realtime)
+  useEffect(() => {
+    if (!currentUserId) return
+
+    const handleMessagesChanged = () => {
+      requestFullListRefresh()
+    }
+
+    window.addEventListener(MESSAGES_CHANGED_EVENT, handleMessagesChanged)
+    return () => window.removeEventListener(MESSAGES_CHANGED_EVENT, handleMessagesChanged)
+  }, [currentUserId, requestFullListRefresh])
 
   const handleConversationSelect = (id: string) => {
     navigate(`/nachrichten/${id}`, { replace: true })
@@ -299,7 +308,6 @@ function MessagesPage() {
               onConversationUpdate={handleConversationRealtimeUpdate}
               onConversationDeleted={handleConversationDeleted}
               isInitialLoad={isInitialLoad}
-              isRefreshing={isRefreshingList}
               error={error}
             />
           </div>

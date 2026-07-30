@@ -271,18 +271,9 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
           }
 
           if (newMessage.sender_id !== currentUserId) {
-            const senderName = newMessage.sender 
-              ? `${newMessage.sender.first_name || ''} ${newMessage.sender.last_name || ''}`.trim()
-              : 'Unbekannt'
-            
-            notificationManager.showChatNotification(
-              senderName,
-              newMessage.content,
-              conversation.id,
-              () => {
-                window.focus()
-              }
-            )
+            notificationManager.showChatNotification(conversation.id, () => {
+              window.focus()
+            })
           }
         },
         (subscriptionError) => {

@@ -315,10 +315,40 @@ export async function markAsRead(
       return { error: error.message }
     }
 
+    // Clear email reminder when user has read all messages
+    const { data: remainingUnread } = await getTotalUnreadCount(userId)
+    if (remainingUnread === 0) {
+      await supabase.from('message_email_reminders').delete().eq('user_id', userId)
+    }
+
     return { error: null }
   } catch (error) {
     return { 
       error: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+}
+
+/**
+ * Get total unread message count for a user (single RPC query)
+ */
+export async function getTotalUnreadCount(
+  userId: string
+): Promise<{ data: number; error: string | null }> {
+  try {
+    const { data, error } = await supabase.rpc('get_total_unread_count', {
+      p_user_id: userId,
+    })
+
+    if (error) {
+      return { data: 0, error: error.message }
+    }
+
+    return { data: typeof data === 'number' ? data : 0, error: null }
+  } catch (error) {
+    return {
+      data: 0,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     }
   }
 }
