@@ -49,6 +49,7 @@ export interface DienstleisterProfil {
   public_profile_visible: boolean;
   is_suspended: boolean;
   approval_status: string;
+  is_verified?: boolean;
 
   // Dienstleister-spezifische Felder
   kategorie_id: number;

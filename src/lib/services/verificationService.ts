@@ -283,6 +283,14 @@ export class VerificationService {
         .eq('id', requestData.user_id);
 
       if (userError) throw userError;
+
+      // caretaker_profiles.is_verified synchron halten
+      const { error: profileError } = await supabase
+        .from('caretaker_profiles')
+        .update({ is_verified: status === 'approved' })
+        .eq('id', requestData.user_id);
+
+      if (profileError) throw profileError;
     } catch (error) {
       console.error('Error updating verification status:', error);
       throw new Error('Verifizierungsstatus konnte nicht aktualisiert werden');

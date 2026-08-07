@@ -2711,7 +2711,7 @@ function CaretakerDashboardPage() {
                   </div>
 
                   {/* Verifiziert-Badge */}
-                  {profile?.is_verified && (
+                  {(profile?.is_verified || verificationStatus === 'approved') && (
                     <div className="mb-2">
                       <span className="bg-primary-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full flex items-center">
                         <Verified className="h-2.5 w-2.5 mr-1" /> Verifiziert

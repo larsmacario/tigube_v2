@@ -536,7 +536,7 @@ function DienstleisterProfilePage() {
                 <div>
                   <div className="flex items-center flex-wrap gap-2 sm:gap-3 mb-2">
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{displayName}</h1>
-                    {dienstleister.approval_status === 'approved' && (
+                    {dienstleister.is_verified && (
                       <span className="bg-primary-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full flex items-center">
                         <Verified className="h-2.5 w-2.5 mr-1" /> Verifiziert
                       </span>

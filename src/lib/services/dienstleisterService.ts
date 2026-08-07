@@ -227,6 +227,19 @@ export class DienstleisterService {
         console.error('Fehler beim Laden des Dienstleister-Profils:', error);
         return null;
       }
+
+      // is_verified: View kann Spalte fehlen — aus caretaker_profiles/users abgleichen
+      if (data && (loadedFromView || data.is_verified === undefined)) {
+        const [{ data: profilePatch }, { data: userPatch }] = await Promise.all([
+          supabase.from('caretaker_profiles').select('is_verified').eq('id', id).maybeSingle(),
+          supabase.from('users').select('verification_status').eq('id', id).maybeSingle(),
+        ]);
+        const isVerified =
+          profilePatch?.is_verified === true ||
+          userPatch?.verification_status === 'approved';
+        data = { ...data, is_verified: isVerified };
+      }
+
       return data;
     } catch (err) {
       console.error('Fehler beim Laden des Dienstleister-Profils:', err);
